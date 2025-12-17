@@ -1,0 +1,1 @@
+# Script: LlamaParse -> Vectors -> Supabase

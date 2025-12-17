@@ -1,1 +1,1 @@
-# FastAPI main application
+# Entry point (uvicorn app:app)

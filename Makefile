@@ -1,18 +1,30 @@
-.PHONY: help install dev up down logs clean test
+.PHONY: help install dev up down logs clean backend frontend pipeline
 
 help:
 	@echo "Available commands:"
-	@echo "  make install    - Install dependencies"
-	@echo "  make dev        - Start development environment"
-	@echo "  make up         - Start all services with Docker"
+	@echo "  make install    - Install all dependencies"
+	@echo "  make dev        - Start both frontend and backend"
+	@echo "  make backend    - Start backend only"
+	@echo "  make frontend   - Start frontend only"
+	@echo "  make pipeline   - Run data ingestion pipeline"
+	@echo "  make up         - Start with Docker Compose"
 	@echo "  make down       - Stop all services"
 	@echo "  make logs       - View logs"
-	@echo "  make clean      - Clean up containers and volumes"
-	@echo "  make test       - Run tests"
+	@echo "  make clean      - Clean up everything"
 
 install:
 	cd backend && pip install -r requirements.txt
 	cd frontend && npm install
+	cd data-pipeline && pip install -r requirements.txt
+
+backend:
+	cd backend && uvicorn app.main:app --reload
+
+frontend:
+	cd frontend && npm run dev
+
+pipeline:
+	cd data-pipeline && python ingest.py
 
 dev:
 	docker-compose up
@@ -31,7 +43,4 @@ clean:
 	rm -rf backend/__pycache__
 	rm -rf frontend/.next
 	rm -rf frontend/node_modules
-
-test:
-	cd backend && pytest
-	cd frontend && npm test
+	rm -rf data-pipeline/processed/*

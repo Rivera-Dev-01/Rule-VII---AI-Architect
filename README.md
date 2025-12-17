@@ -1,6 +1,6 @@
-# 🏗️ Architectural Mentor AI
+# 🏗️ Rule VII SaaS - AI Architectural Mentor
 
-AI-powered architectural design critique system using professional building codes, dimensions, and expert tone.
+AI-powered architectural design critique system using Philippine building codes (NBCP Rule VII) with professional analysis and code citations.
 
 ## 🎯 Overview
 
@@ -18,29 +18,29 @@ An AI mentor that analyzes architectural designs against Philippine building cod
 ## 📁 Project Structure
 
 ```
-arch-mentor/
-├── backend/                 # FastAPI backend
+rule-vii-saas/
+├── frontend/              # Next.js 14 + Tailwind
+│   ├── src/
+│   │   ├── app/          # App Router (pages)
+│   │   ├── components/   # React components
+│   │   ├── lib/          # API & Supabase clients
+│   │   └── types/        # TypeScript interfaces
+│   └── public/           # Static assets
+├── backend/              # FastAPI + Python
 │   ├── app/
-│   │   ├── api/routes/     # API endpoints
-│   │   ├── core/           # Config & settings
-│   │   └── services/       # Business logic
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/               # Next.js frontend
-│   ├── app/               # App router pages
-│   ├── components/        # React components
-│   ├── Dockerfile.dev
-│   └── package.json
-├── scripts/
-│   ├── data_preparation/  # PDF parsing & embedding
-│   └── training/          # Model fine-tuning
-├── database/              # Supabase schema
-├── data/
-│   ├── raw_pdfs/         # Original building codes
-│   ├── parsed_markdown/  # LlamaParse output
-│   └── training/         # Fine-tuning dataset
-├── docker-compose.yml
-└── .env.example
+│   │   ├── api/v1/      # API routes
+│   │   ├── core/        # Config & security
+│   │   ├── models/      # Pydantic schemas
+│   │   └── services/    # Business logic
+│   └── Dockerfile
+├── data-pipeline/        # Local PC scripts
+│   ├── raw_docs/        # PDFs (gitignored)
+│   ├── processed/       # Markdown output
+│   └── ingest.py        # LlamaParse → Supabase
+├── fine-tuning/         # Colab notebooks
+│   ├── datasets/        # Training data
+│   └── notebooks/       # Jupyter notebooks
+└── docker-compose.yml
 ```
 
 ## 🚀 Quick Start
@@ -56,9 +56,22 @@ arch-mentor/
 ### 1. Clone & Setup
 ```bash
 git clone <repo>
-cd arch-mentor
+cd rule-vii-saas
+
+# Setup backend
+cd backend
 cp .env.example .env
 # Edit .env with your API keys
+
+# Setup frontend
+cd ../frontend
+cp .env.local.example .env.local
+# Edit .env.local with your keys
+
+# Setup data pipeline
+cd ../data-pipeline
+cp .env.example .env
+# Edit .env with LlamaParse key
 ```
 
 ### 2. Run with Docker
@@ -79,23 +92,23 @@ cat database/supabase_schema.sql
 
 ### Phase 1: Document Preparation
 ```bash
-# 1. Place PDFs in data/raw_pdfs/
-# 2. Parse PDFs to markdown
-python scripts/data_preparation/parse_pdfs.py
-
-# 3. Chunk and embed documents
-python scripts/data_preparation/chunk_and_embed.py
+# 1. Place PDFs in data-pipeline/raw_docs/
+# 2. Run ingestion pipeline
+cd data-pipeline
+pip install -r requirements.txt
+python ingest.py
 ```
 
 ### Phase 2: Model Training
 ```bash
-# 1. Create training dataset
-python scripts/training/prepare_dataset.py
+# 1. Prepare training data
+cd fine-tuning/datasets
+# Edit raw_dialogues.json with your examples
 
 # 2. Open Google Colab
-# 3. Follow scripts/training/colab_setup.md
-# 4. Upload dataset and train
-# 5. Export to Hugging Face
+# 3. Upload fine-tuning/notebooks/train_llama3.ipynb
+# 4. Upload formatted_train.jsonl
+# 5. Train and export to Hugging Face
 ```
 
 ### Phase 3: Deploy
@@ -166,9 +179,9 @@ npm run dev
 
 ## 📚 Documentation
 
-- Building Codes: See `data/raw_pdfs/`
+- Building Codes: Place in `data-pipeline/raw_docs/`
 - API Docs: http://localhost:8000/docs
-- Training Guide: `scripts/training/colab_setup.md`
+- Training Guide: `fine-tuning/notebooks/train_llama3.ipynb`
 
 ## 🤝 Contributing
 

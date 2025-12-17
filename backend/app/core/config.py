@@ -1,1 +1,1 @@
-# Application configuration
+# Loads .env variables
