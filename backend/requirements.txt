@@ -1,0 +1,34 @@
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database & Vector Store
+supabase==2.3.4
+pgvector==0.2.4
+psycopg2-binary==2.9.9
+
+# AI & ML
+openai==1.10.0
+llama-index==0.9.48
+sentence-transformers==2.3.1
+transformers==4.37.2
+
+# Document Parsing
+llama-parse==0.3.3
+pypdf2==3.0.1
+markdown==3.5.2
+
+# HTTP & API
+httpx==0.26.0
+requests==2.31.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Utilities
+tenacity==8.2.3
+pyyaml==6.0.1

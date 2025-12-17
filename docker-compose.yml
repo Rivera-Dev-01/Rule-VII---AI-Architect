@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: arch-mentor-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - RUNPOD_API_KEY=${RUNPOD_API_KEY}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+      - LLAMAPARSE_API_KEY=${LLAMAPARSE_API_KEY}
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - arch-mentor-network
+
+  # Frontend (Development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: arch-mentor-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - arch-mentor-network
+
+networks:
+  arch-mentor-network:
+    driver: bridge
