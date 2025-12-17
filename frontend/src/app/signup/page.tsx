@@ -3,15 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Mail, Lock, ArrowRight, AlertCircle } from "lucide-react";
+import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 
-
-export default function LoginPage() {
+export default function SignupPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [status, setStatus] =
-        useState<"idle" | "loading" | "error">("idle");
+        useState<"idle" | "loading" | "success" | "error">("idle");
     const [errorMsg, setErrorMsg] = useState("");
 
     async function handleSubmit(e: React.FormEvent) {
@@ -19,7 +18,7 @@ export default function LoginPage() {
         setStatus("loading");
         setErrorMsg("");
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signUp({
             email,
             password,
         });
@@ -30,28 +29,13 @@ export default function LoginPage() {
             return;
         }
 
-        // Logged in – redirect to home or a protected page.
-        router.push("/");
+        // Depending on your Supabase settings, this may send a confirmation email.
+        setStatus("success");
+        // After a short delay, send them to home or a dashboard.
+        setTimeout(() => router.push("/"), 1500);
     }
 
-    async function handleGoogleLogin() {
-        setStatus("loading");
-        setErrorMsg("");
-
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
-            },
-        });
-
-        if (error) {
-            setStatus("error");
-            setErrorMsg(error.message);
-        }
-    }
-
-    async function handleFacebookLogin() {
+    async function handleFacebookSignup() {
         setStatus("loading");
         setErrorMsg("");
 
@@ -68,7 +52,7 @@ export default function LoginPage() {
         }
     }
 
-    async function handleMicrosoftLogin() {
+    async function handleMicrosoftSignup() {
         setStatus("loading");
         setErrorMsg("");
 
@@ -90,18 +74,18 @@ export default function LoginPage() {
         <main className="min-h-screen flex items-center justify-center bg-zinc-950 text-white px-6">
             <div className="max-w-md w-full">
                 <h1 className="text-2xl font-bold mb-2 tracking-tight">
-                    Log in to Rule VII
+                    Create your Rule VII account
                 </h1>
                 <p className="text-sm text-zinc-400 mb-6">
-                    Continue your projects and access your license.
+                    Used to save your chats and manage your license.
                 </p>
 
-                {/* Social Login Buttons */}
+                {/* Social Sign Up Buttons */}
                 <div className="space-y-3">
                     {/* Facebook Button */}
                     <button
                         type="button"
-                        onClick={handleFacebookLogin}
+                        onClick={handleFacebookSignup}
                         disabled={status === "loading"}
                         className="w-full flex items-center justify-center gap-3 py-3 px-4
                            bg-[#1877F2] text-white font-medium rounded-sm
@@ -116,7 +100,7 @@ export default function LoginPage() {
                     {/* Microsoft Button */}
                     <button
                         type="button"
-                        onClick={handleMicrosoftLogin}
+                        onClick={handleMicrosoftSignup}
                         disabled={status === "loading"}
                         className="w-full flex items-center justify-center gap-3 py-3 px-4
                            bg-white text-zinc-950 font-medium rounded-sm border border-zinc-300
@@ -169,11 +153,12 @@ export default function LoginPage() {
                             <input
                                 type="password"
                                 required
+                                minLength={8}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="flex-1 px-3 py-2 bg-zinc-900 border border-l-0 border-zinc-700 rounded-r-sm text-sm
                            focus:outline-none focus:ring-1 focus:ring-zinc-400"
-                                placeholder="Your password"
+                                placeholder="At least 8 characters"
                             />
                         </div>
                     </label>
@@ -185,22 +170,29 @@ export default function LoginPage() {
                        bg-white text-zinc-950 font-semibold rounded-sm
                        hover:bg-zinc-200 disabled:opacity-60 transition"
                     >
-                        {status === "loading" ? "Signing in..." : "Log In"}
+                        {status === "loading" ? "Creating account..." : "Get Started"}
                         {status !== "loading" && <ArrowRight size={16} />}
                     </button>
                 </form>
 
+                {status === "success" && (
+                    <p className="mt-4 flex items-center gap-2 text-sm text-emerald-400">
+                        <CheckCircle2 size={16} />
+                        Account created. Redirecting…
+                    </p>
+                )}
+
                 {status === "error" && (
                     <p className="mt-4 flex items-center gap-2 text-sm text-rose-400">
                         <AlertCircle size={16} />
-                        {errorMsg || "Invalid email or password."}
+                        {errorMsg || "Something went wrong. Please try again."}
                     </p>
                 )}
 
                 <p className="mt-6 text-xs text-zinc-500">
-                    Don&apos;t have an account yet?{" "}
-                    <a href="/signup" className="underline underline-offset-2">
-                        Get started
+                    Already have an account?{" "}
+                    <a href="/login" className="underline underline-offset-2">
+                        Log in
                     </a>
                 </p>
             </div>
