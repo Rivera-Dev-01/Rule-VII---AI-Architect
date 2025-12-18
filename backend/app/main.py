@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import chat, analyze, auth
+from app.core.security import verify_token  # <--- Import the security function
 
 app = FastAPI(
     title="Rule VII SaaS API",
@@ -9,22 +10,37 @@ app = FastAPI(
 )
 
 # CORS
+# In production, change ["*"] to ["https://your-frontend-domain.com"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
-app.include_router(analyze.router, prefix="/api/v1/analyze", tags=["analyze"])
+# --- PROTECTED ROUTES (Lock these) ---
+app.include_router(
+    chat.router,
+    prefix="/api/v1/chat",
+    tags=["chat"],
+    dependencies=[Depends(verify_token)]  # <--- This locks the door
+)
+app.include_router(
+    analyze.router,
+    prefix="/api/v1/analyze",
+    tags=["analyze"],
+    dependencies=[Depends(verify_token)]  # <--- This locks the door
+)
+
+# --- PUBLIC ROUTES (Leave these open) ---
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+
 
 @app.get("/")
 async def root():
     return {"message": "Rule VII SaaS API", "status": "running"}
+
 
 @app.get("/health")
 async def health():

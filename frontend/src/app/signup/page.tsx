@@ -3,18 +3,44 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 export default function SignupPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [status, setStatus] =
-        useState<"idle" | "loading" | "success" | "error">("idle");
+    const [showPassword, setShowPassword] = useState(false); // Visibility state
+    
+    const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
     const [errorMsg, setErrorMsg] = useState("");
+
+    // Strong Password Validation
+    function validatePassword(pwd: string) {
+        const minLength = 8;
+        const hasUpperCase = /[A-Z]/.test(pwd);
+        const hasLowerCase = /[a-z]/.test(pwd);
+        const hasNumbers = /\d/.test(pwd);
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(pwd);
+
+        if (pwd.length < minLength) return "Password must be at least 8 characters.";
+        if (!hasUpperCase) return "Password must include at least one uppercase letter.";
+        if (!hasLowerCase) return "Password must include at least one lowercase letter.";
+        if (!hasNumbers) return "Password must include at least one number.";
+        if (!hasSpecialChar) return "Password must include at least one special character.";
+        return null;
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        
+        // 1. Validate Password Strength
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+            setStatus("error");
+            setErrorMsg(passwordError);
+            return;
+        }
+
         setStatus("loading");
         setErrorMsg("");
 
@@ -29,10 +55,9 @@ export default function SignupPage() {
             return;
         }
 
-        // Depending on your Supabase settings, this may send a confirmation email.
+        // Success - tell user to check email
         setStatus("success");
-        // After a short delay, send them to home or a dashboard.
-        setTimeout(() => router.push("/"), 1500);
+        setTimeout(() => router.push("/"), 2000);
     }
 
     async function handleFacebookSignup() {
@@ -146,21 +171,32 @@ export default function SignupPage() {
 
                     <label className="block text-sm font-medium text-zinc-300">
                         Password
-                        <div className="mt-1 flex">
+                        <div className="mt-1 flex relative">
                             <span className="flex items-center px-3 border border-zinc-700 bg-zinc-900 rounded-l-sm">
                                 <Lock size={16} className="text-zinc-500" />
                             </span>
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 required
-                                minLength={8}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="flex-1 px-3 py-2 bg-zinc-900 border border-l-0 border-zinc-700 rounded-r-sm text-sm
-                           focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                           focus:outline-none focus:ring-1 focus:ring-zinc-400 pr-10"
                                 placeholder="At least 8 characters"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition"
+                            >
+                                {/* Swapped: Eye = Visible, EyeOff = Hidden */}
+                                {showPassword ? <Eye size={16} /> : <EyeOff size={16} />}
+                            </button>
                         </div>
+                        {/* Password Requirements Hint */}
+                        <p className="text-xs text-zinc-500 mt-1">
+                            Must contain: uppercase, lowercase, number, & special char.
+                        </p>
                     </label>
 
                     <button
@@ -178,7 +214,7 @@ export default function SignupPage() {
                 {status === "success" && (
                     <p className="mt-4 flex items-center gap-2 text-sm text-emerald-400">
                         <CheckCircle2 size={16} />
-                        Account created. Redirecting…
+                        Account created! Please check your email to confirm.
                     </p>
                 )}
 
