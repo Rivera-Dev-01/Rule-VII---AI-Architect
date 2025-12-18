@@ -1,22 +1,44 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+// src/app/layout.tsx
+import { Bodoni_Moda, Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+import { ThemeProvider } from "@/components/theme-provider"; // <--- IMPORT THIS
 
-const inter = Inter({ subsets: ["latin"] });
+// ... (Keep your font configurations here unchanged) ...
+const fontHeading = Bodoni_Moda({ subsets: ["latin"], variable: "--font-heading", weight: ["400", "500", "600", "700"] });
+const fontSans = Manrope({ subsets: ["latin"], variable: "--font-sans", weight: ["300", "400", "500", "600"] });
+const fontMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-export const metadata: Metadata = {
-    title: "Rule VII - AI Architect",
-    description: "Senior Architect AI for NBCP Compliance",
+export const metadata = {
+  title: "AI Architect Dashboard",
+  description: "Compliance analysis for professionals",
 };
 
 export default function RootLayout({
-    children,
-}: Readonly<{
-    children: React.ReactNode;
-}>) {
-    return (
-        <html lang="en">
-            <body className={inter.className}>{children}</body>
-        </html>
-    );
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={cn(
+          "min-h-screen bg-background font-sans antialiased",
+          fontHeading.variable,
+          fontSans.variable,
+          fontMono.variable
+        )}
+      >
+        {/* WRAP CHILDREN WITH THEME PROVIDER */}
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
 }

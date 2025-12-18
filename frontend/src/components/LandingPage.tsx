@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTheme } from "next-themes"; // <--- 1. IMPORT THIS
 import {
     Check,
     Scale,
@@ -19,22 +20,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-// Import the NEW component
 import { TypewriterText } from "@/components/ui/typewriter-text";
 
 export default function LandingPage() {
-    const [darkMode, setDarkMode] = useState(false);
+    // --- 2. USE GLOBAL THEME HOOK ---
+    const { setTheme, theme } = useTheme();
+    const [mounted, setMounted] = useState(false);
 
+    // Prevent hydration mismatch by waiting for mount
     useEffect(() => {
-        if (darkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    }, [darkMode]);
+        setMounted(true);
+    }, []);
 
     return (
-        <div className={`min-h-screen bg-background text-foreground transition-colors duration-300 selection:bg-primary/10 selection:text-primary`}>
+        <div className={`min-h-screen bg-background text-foreground transition-colors duration-300 selection:bg-primary/10 selection:text-primary font-sans`}>
 
             {/* Background Grid Pattern */}
             <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] dark:opacity-[0.03]"
@@ -48,29 +47,31 @@ export default function LandingPage() {
                         <div className="bg-primary text-primary-foreground p-1.5 rounded-md">
                             <Scale size={18} strokeWidth={3} />
                         </div>
-                        <span className="font-bold text-lg tracking-tight">Rule VII</span>
+                        <span className="font-heading font-bold text-xl tracking-tight">Rule VII</span>
                     </div>
 
                     <div className="hidden md:flex items-center gap-6">
-                        <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Capabilities</a>
-                        <a href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+                        <a href="#features" className="text-xs font-sans font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Capabilities</a>
+                        <a href="#pricing" className="text-xs font-sans font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
                         
                         <div className="h-4 w-px bg-border mx-2"></div>
                         
+                        {/* --- 3. UPDATED TOGGLE BUTTON --- */}
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            onClick={() => setDarkMode(!darkMode)}
+                            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                             className="rounded-full"
                         >
-                            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+                            {/* Wait for mount to avoid icon flickering */}
+                            {mounted && (theme === "dark" ? <Sun size={18} /> : <Moon size={18} />)}
                         </Button>
                         
                         <Link href="/login">
-                            <Button variant="ghost">Log In</Button>
+                            <Button variant="ghost" className="font-sans uppercase tracking-wide text-xs">Log In</Button>
                         </Link>
                         <Link href="/signup">
-                            <Button>Get Started</Button>
+                            <Button className="font-sans uppercase tracking-widest text-xs">Get Started</Button>
                         </Link>
                     </div>
                     
@@ -87,36 +88,35 @@ export default function LandingPage() {
                 {/* --- HERO SECTION --- */}
                 <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center mb-32">
                     <div className="space-y-8">
-                        <Badge variant="outline" className="px-3 py-1 text-sm font-mono font-normal rounded-full border-zinc-400 dark:border-zinc-700">
+                        <Badge variant="outline" className="px-3 py-1 text-[10px] font-mono font-normal rounded-full border-zinc-400 dark:border-zinc-700 uppercase tracking-wider">
                             ● SYSTEM V1.0 &nbsp;|&nbsp; NBCP COMPLIANT
                         </Badge>
                         
-                        {/* --- REVERTED TITLE TO NORMAL --- */}
-                        <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tighter">
+                        <h1 className="text-6xl md:text-7xl lg:text-8xl font-heading font-medium leading-[0.9] tracking-tighter text-foreground">
                             Precision <br />
-                            in every <span className="text-muted-foreground">Permit.</span>
+                            <span className="italic font-light text-muted-foreground">in every Permit.</span>
                         </h1>
                         
-                        <p className="text-xl text-muted-foreground leading-relaxed max-w-lg font-light">
+                        <p className="text-xl text-muted-foreground leading-relaxed max-w-lg font-sans font-light">
                             The first AI Code Consultant engineered for Philippine Architecture.
                             Draft with confidence knowing your setbacks and egress are compliant.
                         </p>
                         
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Link href="/signup">
-                                <Button size="lg" className="h-14 px-8 text-lg w-full sm:w-auto gap-2">
-                                    Analyze Plan <ArrowRight size={18} />
+                                <Button size="lg" className="h-14 px-8 w-full sm:w-auto gap-2 font-sans uppercase tracking-widest text-xs font-semibold">
+                                    Analyze Plan <ArrowRight size={16} />
                                 </Button>
                             </Link>
                             <a href="#features">
-                                <Button size="lg" variant="outline" className="h-14 px-8 text-lg w-full sm:w-auto">
+                                <Button size="lg" variant="outline" className="h-14 px-8 w-full sm:w-auto font-sans uppercase tracking-widest text-xs">
                                     System Specs
                                 </Button>
                             </a>
                         </div>
                     </div>
 
-                    {/* --- CHAT MOCKUP WITH TYPING EFFECT --- */}
+                    {/* --- CHAT MOCKUP --- */}
                     <div className="relative group perspective-1000">
                         <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
                         <Card className="relative bg-zinc-950 border-zinc-800 shadow-2xl overflow-hidden aspect-[4/3] flex flex-col transform group-hover:scale-[1.01] transition-transform duration-500">
@@ -131,7 +131,7 @@ export default function LandingPage() {
                             </div>
                             <div className="p-6 font-mono text-sm space-y-6 flex-1 overflow-hidden">
                                 
-                                {/* User Message (Appears first) */}
+                                {/* User Message */}
                                 <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                                     <div className="w-6 h-6 rounded bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">AR</div>
                                     <div className="flex-1 text-zinc-300">
@@ -139,22 +139,17 @@ export default function LandingPage() {
                                     </div>
                                 </div>
 
-                                {/* AI Message (Appears with delay) */}
+                                {/* AI Message */}
                                 <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500">
                                     <div className="w-6 h-6 rounded bg-white flex items-center justify-center text-[10px] font-bold text-black shrink-0">R7</div>
                                     <div className="flex-1 text-zinc-200">
-                                        {/* Static Compliance Badge */}
                                         <span className="text-red-400 font-bold block mb-2">[NON-COMPLIANT]</span>
-                                        
-                                        {/* Static Reference Link */}
                                         <p className="mb-2 text-zinc-400">Reference: <span className="underline decoration-zinc-600">NBCP Rule 12 & RA 9514 Div 8.</span></p>
-                                        
-                                        {/* TYPING EFFECT HERE */}
                                         <p className="opacity-90 leading-relaxed min-h-[60px]">
                                             <TypewriterText 
                                                 text="For educational/office occupancies, the minimum width for a corridor is 1.12 meters (44 inches). Your 1.0m width is insufficient." 
                                                 delay={1.5} 
-                                                loop={true}  // <--- Added this
+                                                loop={true}
                                             />
                                         </p>
                                     </div>
@@ -168,11 +163,11 @@ export default function LandingPage() {
                 <div id="features" className="mt-40 max-w-7xl mx-auto">
                     <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 border-b border-border pb-6">
                         <div>
-                            <h2 className="text-3xl font-bold tracking-tight">System Capabilities</h2>
-                            <p className="mt-2 text-muted-foreground">Powered by RAG Technology (Retrieval Augmented Generation)</p>
+                            <h2 className="text-4xl font-heading font-medium tracking-tight">System Capabilities</h2>
+                            <p className="mt-2 text-muted-foreground font-sans font-light">Powered by RAG Technology (Retrieval Augmented Generation)</p>
                         </div>
                         <div className="text-right hidden md:block">
-                            <Badge variant="secondary" className="font-mono">FIG 2.0 // CORE MODULES</Badge>
+                            <Badge variant="secondary" className="font-mono text-[10px] tracking-widest">FIG 2.0 // CORE MODULES</Badge>
                         </div>
                     </div>
 
@@ -186,16 +181,16 @@ export default function LandingPage() {
                                 <div className="w-12 h-12 bg-primary/5 rounded-lg flex items-center justify-center mb-4">
                                     <ShieldCheck size={24} className="text-primary" />
                                 </div>
-                                <CardTitle className="text-2xl">Automated Code Compliance</CardTitle>
+                                <CardTitle className="text-2xl font-heading font-medium">Automated Code Compliance</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
-                                <p className="text-muted-foreground max-w-md mb-8">
+                                <p className="text-muted-foreground max-w-md mb-8 font-sans font-light">
                                     Cross-reference your design queries against the full text of PD 1096, RA 9514 (Fire Code), and BP 344. We don't guess; we cite the law.
                                 </p>
                                 <div className="bg-background border border-border p-4 rounded-lg max-w-sm shadow-sm">
                                     <div className="flex items-center gap-3 mb-2">
                                         <AlertTriangle size={16} className="text-amber-500" />
-                                        <span className="text-xs font-bold">Violation Detected</span>
+                                        <span className="text-xs font-bold font-mono uppercase">Violation Detected</span>
                                     </div>
                                     <div className="text-xs font-mono text-muted-foreground">
                                         "Setback is 2.0m. NBCP Rule VIII requires 3.0m for R-2 Zones."
@@ -210,10 +205,10 @@ export default function LandingPage() {
                                 <div className="w-12 h-12 bg-primary/5 rounded-lg flex items-center justify-center mb-4">
                                     <Search size={24} className="text-primary" />
                                 </div>
-                                <CardTitle>Instant Technical Data</CardTitle>
+                                <CardTitle className="font-heading font-medium text-xl">Instant Technical Data</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-muted-foreground text-sm">
+                                <p className="text-muted-foreground text-sm font-sans font-light">
                                     Get standard dimensions for plumbing, parking slots (2.5x5.0m), and structural elements instantly.
                                 </p>
                             </CardContent>
@@ -232,10 +227,10 @@ export default function LandingPage() {
                                 <div className="w-12 h-12 bg-primary/5 rounded-lg flex items-center justify-center mb-4">
                                     <BrainCircuit size={24} className="text-primary" />
                                 </div>
-                                <CardTitle>Logic & Flow Critique</CardTitle>
+                                <CardTitle className="font-heading font-medium text-xl">Logic & Flow Critique</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-muted-foreground text-sm">
+                                <p className="text-muted-foreground text-sm font-sans font-light">
                                     Validate your adjacencies. The AI acts as a Senior Architect, flagging privacy issues (e.g., Bathroom opening to Living Room).
                                 </p>
                             </CardContent>
@@ -247,13 +242,13 @@ export default function LandingPage() {
                                 <div>
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="p-2 bg-white/10 rounded-full"><FileText size={20} /></div>
-                                        <h3 className="text-xl font-bold">Citations, Not Hallucinations.</h3>
+                                        <h3 className="text-xl font-heading font-medium">Citations, Not Hallucinations.</h3>
                                     </div>
-                                    <p className="text-zinc-400 dark:text-zinc-600 max-w-md text-sm">
+                                    <p className="text-zinc-400 dark:text-zinc-600 max-w-md text-sm font-sans">
                                         Every answer includes a direct link to the PDF page of the code. Verify the source material yourself with one click.
                                     </p>
                                 </div>
-                                <Button variant="outline" className="bg-white/5 border-white/20 text-white hover:bg-white/10 dark:text-black dark:border-black/20">
+                                <Button variant="outline" className="bg-white/5 border-white/20 text-white hover:bg-white/10 dark:text-black dark:border-black/20 font-sans uppercase tracking-widest text-xs">
                                     View NBCP Rule VIII, Page 104 ↗
                                 </Button>
                             </CardContent>
@@ -264,8 +259,8 @@ export default function LandingPage() {
                 {/* --- PRICING SECTION --- */}
                 <div id="pricing" className="mt-40 max-w-7xl mx-auto mb-20">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-3xl font-bold tracking-tight">Professional Licensing</h2>
-                        <p className="text-muted-foreground max-w-2xl mx-auto">
+                        <h2 className="text-4xl font-heading font-medium tracking-tight">Professional Licensing</h2>
+                        <p className="text-muted-foreground max-w-2xl mx-auto font-sans font-light">
                             Start for free. Upgrade when your project demands it.
                         </p>
                     </div>
@@ -274,15 +269,15 @@ export default function LandingPage() {
                         {/* Free Tier */}
                         <Card className="flex flex-col h-full hover:shadow-xl transition-shadow duration-300">
                             <CardHeader>
-                                <CardTitle>Starter</CardTitle>
-                                <CardDescription>For testing the waters</CardDescription>
+                                <CardTitle className="font-heading text-xl">Starter</CardTitle>
+                                <CardDescription className="font-sans">For testing the waters</CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1 space-y-6">
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-bold">$0</span>
-                                    <span className="text-muted-foreground">/forever</span>
+                                    <span className="text-4xl font-mono font-bold tracking-tighter">$0</span>
+                                    <span className="text-muted-foreground font-mono text-sm">/forever</span>
                                 </div>
-                                <ul className="space-y-3 text-sm">
+                                <ul className="space-y-3 text-sm font-sans">
                                     <li className="flex gap-3"><Check size={18} className="text-primary" /> 10 Queries / Day</li>
                                     <li className="flex gap-3"><Check size={18} className="text-primary" /> Basic NBCP Access</li>
                                     <li className="flex gap-3 text-muted-foreground"><span className="line-through">Project History</span></li>
@@ -290,7 +285,7 @@ export default function LandingPage() {
                             </CardContent>
                             <CardFooter>
                                 <Link href="/signup" className="w-full">
-                                    <Button variant="outline" className="w-full">Sign Up Free</Button>
+                                    <Button variant="outline" className="w-full font-sans uppercase tracking-widest text-xs">Sign Up Free</Button>
                                 </Link>
                             </CardFooter>
                         </Card>
@@ -298,47 +293,47 @@ export default function LandingPage() {
                         {/* Monthly Tier */}
                         <Card className="flex flex-col h-full hover:shadow-xl transition-shadow duration-300 border-primary/20 relative">
                              <div className="absolute top-0 right-0 -mt-3 mr-4">
-                                <Badge>Popular</Badge>
+                                <Badge className="font-sans uppercase tracking-wider text-[10px]">Popular</Badge>
                              </div>
                             <CardHeader>
-                                <CardTitle>Monthly License</CardTitle>
-                                <CardDescription>For freelancers</CardDescription>
+                                <CardTitle className="font-heading text-xl">Monthly License</CardTitle>
+                                <CardDescription className="font-sans">For freelancers</CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1 space-y-6">
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-bold">$20</span>
-                                    <span className="text-muted-foreground">/mo</span>
+                                    <span className="text-4xl font-mono font-bold tracking-tighter">$20</span>
+                                    <span className="text-muted-foreground font-mono text-sm">/mo</span>
                                 </div>
-                                <ul className="space-y-3 text-sm">
+                                <ul className="space-y-3 text-sm font-sans">
                                     <li className="flex gap-3"><Check size={18} className="text-primary" /> <strong>Unlimited</strong> Queries</li>
                                     <li className="flex gap-3"><Check size={18} className="text-primary" /> Full RAG (NBCP + Fire Code)</li>
                                     <li className="flex gap-3"><Check size={18} className="text-primary" /> Save Chat History</li>
                                 </ul>
                             </CardContent>
                             <CardFooter>
-                                <Button className="w-full">Get Monthly</Button>
+                                <Button className="w-full font-sans uppercase tracking-widest text-xs">Get Monthly</Button>
                             </CardFooter>
                         </Card>
 
                         {/* Yearly Tier */}
                         <Card className="flex flex-col h-full hover:shadow-xl transition-shadow duration-300 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950">
                             <CardHeader>
-                                <CardTitle className="text-white dark:text-black">Yearly Pro</CardTitle>
-                                <CardDescription className="text-zinc-400 dark:text-zinc-600">For serious practitioners</CardDescription>
+                                <CardTitle className="text-white dark:text-black font-heading text-xl">Yearly Pro</CardTitle>
+                                <CardDescription className="text-zinc-400 dark:text-zinc-600 font-sans">For serious practitioners</CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1 space-y-6">
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-4xl font-bold">$180</span>
-                                    <span className="text-zinc-400 dark:text-zinc-600">/yr</span>
+                                    <span className="text-4xl font-mono font-bold tracking-tighter">$180</span>
+                                    <span className="text-zinc-400 dark:text-zinc-600 font-mono text-sm">/yr</span>
                                 </div>
-                                <ul className="space-y-3 text-sm text-zinc-300 dark:text-zinc-700">
+                                <ul className="space-y-3 text-sm text-zinc-300 dark:text-zinc-700 font-sans">
                                     <li className="flex gap-3"><Check size={18} /> <strong>3 Months Free</strong> (Save $60)</li>
                                     <li className="flex gap-3"><Check size={18} /> Priority Server Access</li>
                                     <li className="flex gap-3"><Check size={18} /> Early Access: Vision Plan Review</li>
                                 </ul>
                             </CardContent>
                             <CardFooter>
-                                <Button variant="secondary" className="w-full font-bold">Get Yearly License</Button>
+                                <Button variant="secondary" className="w-full font-bold font-sans uppercase tracking-widest text-xs">Get Yearly License</Button>
                             </CardFooter>
                         </Card>
                     </div>
@@ -353,9 +348,9 @@ export default function LandingPage() {
                         <div className="bg-primary text-primary-foreground p-1 rounded-md">
                             <Scale size={16} strokeWidth={3} />
                         </div>
-                        <span className="font-bold text-sm tracking-tight uppercase">Rule VII</span>
+                        <span className="font-heading font-bold text-sm tracking-tight uppercase">Rule VII</span>
                     </div>
-                    <p className="text-muted-foreground text-xs font-mono">
+                    <p className="text-muted-foreground text-[10px] font-mono tracking-widest uppercase">
                         RIVERA, MIGGY G. // SYSTEM V1.0 // TAGUIG, PH
                     </p>
                 </div>
