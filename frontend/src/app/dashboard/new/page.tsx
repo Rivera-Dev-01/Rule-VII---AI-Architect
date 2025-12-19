@@ -1,38 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { Send, PanelLeftClose, PanelRightClose } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Send, Sparkles, Scale, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { 
+  ResizableHandle, 
+  ResizablePanel, 
+  ResizablePanelGroup 
+} from "@/components/ui/resizable";
 
 import DocumentPanel from "@/components/workspace/DocumentPanel";
 import DraftBubble from "@/components/workspace/DraftBubble";
+import MessageBubble from "@/components/chat/MessageBubble"; 
 import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/workspace";
 
 // --- MOCK DATA ---
 const MOCK_PROPOSAL: DraftProposal = {
     id: "prop-1",
-    title: "Rule VII: Ventilation Analysis",
-    summary: "Window-to-floor ratio in Master Bedroom is 8% (Req: 10%).",
-    reasoning: "I detected a potential compliance issue in the provided plan.",
-    proposedContent: "The Master Bedroom (Zone A) currently exhibits a window opening area of 1.2sqm against a floor area of 15sqm (8%).\n\nRecommendation: Increase window width by 0.4m to satisfy Rule VII Sec 3.2 requirements for natural ventilation."
+    title: "Ventilation Compliance: Master Bedroom",
+    summary: "Current WFR is 8%. Code requires 10%.",
+    reasoning: "I detected a violation of Rule VII Section 3.2 based on the uploaded floor plan.",
+    proposedContent: "### Ventilation Analysis\n\n**Finding:** The Master Bedroom (Zone A) currently exhibits a window opening area of 1.2sqm against a floor area of 15sqm (8%).\n\n**Requirement:** National Building Code Rule VII requires a minimum of 10% for residential zones.\n\n**Recommendation:** Increase window width by 0.4m or add a secondary clerestory window."
 };
 
 export default function WorkspacePage() {
-    // --- STATE ---
+    const router = useRouter();
     const [input, setInput] = useState("");
     const [sections, setSections] = useState<DocumentSection[]>([]);
-    const [messages, setMessages] = useState<WorkspaceMessage[]>([
-        { id: "1", role: "assistant", content: "Hello, Architect. Upload a plan or describe the project scope to begin our analysis.", timestamp: new Date() }
-    ]);
+    const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
 
-    // --- HANDLERS ---
     const handleSendMessage = () => {
         if (!input.trim()) return;
 
-        // 1. Add User Message
         const userMsg: WorkspaceMessage = { 
             id: Date.now().toString(), 
             role: "user", 
@@ -42,13 +44,12 @@ export default function WorkspacePage() {
         setMessages(prev => [...prev, userMsg]);
         setInput("");
 
-        // 2. SIMULATE AI RESPONSE
         setTimeout(() => {
             if (input.toLowerCase().includes("analyze")) {
                 const aiMsg: WorkspaceMessage = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content: "I've analyzed the ventilation requirements.",
+                    content: "I've analyzed the ventilation requirements for the residential zones. I found a discrepancy in the Master Bedroom.",
                     timestamp: new Date(),
                     proposal: MOCK_PROPOSAL
                 };
@@ -57,7 +58,7 @@ export default function WorkspacePage() {
                 setMessages(prev => [...prev, {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content: "Understood. I'm reviewing the specs...",
+                    content: "Understood. I'm cross-referencing that with the National Building Code...",
                     timestamp: new Date()
                 }]);
             }
@@ -65,14 +66,13 @@ export default function WorkspacePage() {
     };
 
     const handleApproveDraft = (proposal: DraftProposal) => {
-        const newSection: DocumentSection = {
+        setSections(prev => [...prev, {
             id: proposal.id,
             title: proposal.title,
             content: proposal.proposedContent,
             status: "approved",
             lastUpdated: new Date()
-        };
-        setSections(prev => [...prev, newSection]);
+        }]);
         setMessages(prev => [...prev, {
             id: Date.now().toString(),
             role: "system",
@@ -85,94 +85,119 @@ export default function WorkspacePage() {
         setMessages(prev => [...prev, {
             id: Date.now().toString(),
             role: "assistant",
-            content: "Noted. What changes would you like?",
+            content: "Noted. I've discarded that draft. What specific changes would you like?",
             timestamp: new Date()
         }]);
     };
 
     return (
-        <div className="h-[calc(100vh-4rem)] bg-background flex flex-col overflow-hidden">
+        <div className="h-screen bg-background flex flex-col overflow-hidden">
             <ResizablePanelGroup direction="horizontal" className="flex-1">
                 
-                {/* --- LEFT PANEL: CHAT --- */}
-                <ResizablePanel defaultSize={60} minSize={30} maxSize={75} className="flex flex-col">
-                    <div className="h-full flex flex-col relative">
-                        {/* Chat Header */}
-                        <div className="h-14 border-b border-border flex items-center justify-between px-6 bg-background/95 backdrop-blur">
-                            <span className="font-semibold text-sm">Design Assistant</span>
-                            <div className="text-xs text-muted-foreground font-mono">
-                                V1.0.0
-                            </div>
+                {/* --- LEFT PANEL --- */}
+                <ResizablePanel defaultSize={60} minSize={30} maxSize={75} className="flex flex-col relative z-10">
+                    <div className="h-full flex flex-col bg-muted/20 dark:bg-zinc-900/50 relative">
+                        
+                        {/* BACK BUTTON */}
+                        <div className="absolute top-4 left-4 z-30">
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-muted-foreground hover:text-foreground transition-colors gap-2"
+                                onClick={() => router.push('/dashboard')}
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span className="hidden sm:inline">Back</span>
+                            </Button>
                         </div>
 
-                        {/* Messages */}
-                        <ScrollArea className="flex-1 p-4">
-                            <div className="space-y-6 max-w-3xl mx-auto pb-4">
-                                {messages.map((msg) => (
-                                    <div key={msg.id}>
-                                        <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                            {msg.role !== 'system' && (
-                                                <div className={`
-                                                    max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed shadow-sm
-                                                    ${msg.role === 'user' 
-                                                        ? 'bg-primary text-primary-foreground rounded-br-none' 
-                                                        : 'bg-muted/50 border border-border/50 rounded-bl-none'}
-                                                `}>
-                                                    {msg.content}
-                                                </div>
-                                            )}
-                                            {msg.role === 'system' && (
-                                                <div className="w-full text-center text-xs text-muted-foreground font-mono my-2 opacity-70">
-                                                    — {msg.content} —
-                                                </div>
-                                            )}
+                        <ScrollArea className="flex-1 px-4 lg:px-8">
+                            {/* 
+                               FIX: Changed height to 'h-[calc(100vh-2rem)]' 
+                               This forces the container to fill the screen vertically,
+                               so 'justify-center' works correctly.
+                            */}
+                            <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-2rem)] py-6 pt-14">
+                                
+                                {messages.length === 0 ? (
+                                    /* 
+                                       CENTERING LOGIC:
+                                       flex-1 expands to fill space.
+                                       justify-center puts content in middle.
+                                       pb-20 offsets the floating input bar so it looks visually centered.
+                                    */
+                                    <div className="flex-1 flex flex-col items-center justify-center pb-20 opacity-90">
+                                        <div className="mb-8 relative group cursor-default">
+                                            <div className="absolute -inset-2 bg-gradient-to-tr from-primary/20 to-purple-500/20 rounded-3xl blur-lg opacity-40 group-hover:opacity-60 transition duration-500"></div>
+                                            <div className="relative w-20 h-20 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center shadow-xl border border-primary/10">
+                                                <Scale className="w-10 h-10 stroke-[2.5]" />
+                                            </div>
                                         </div>
 
-                                        {/* Proposal Card */}
-                                        {msg.proposal && (
-                                            <DraftBubble 
-                                                proposal={msg.proposal}
-                                                onApprove={handleApproveDraft}
-                                                onReject={handleRejectDraft}
-                                            />
-                                        )}
+                                        <h2 className="text-xl font-heading font-medium text-foreground">Rule VII Architect</h2>
+                                        <p className="text-sm text-muted-foreground mt-2 text-center max-w-sm">
+                                            I am ready to analyze your floor plans against the National Building Code.
+                                        </p>
                                     </div>
-                                ))}
+                                ) : (
+                                    /* MESSAGES (Just standard layout) */
+                                    <div className="space-y-4 pb-4">
+                                        {messages.map((msg) => (
+                                            <div key={msg.id}>
+                                                <MessageBubble role={msg.role} content={msg.content} />
+                                                {msg.proposal && (
+                                                    <DraftBubble 
+                                                        proposal={msg.proposal}
+                                                        onApprove={handleApproveDraft}
+                                                        onReject={handleRejectDraft}
+                                                    />
+                                                )}
+                                            </div>
+                                        ))}
+                                        <div className="h-32" /> 
+                                    </div>
+                                )}
                             </div>
                         </ScrollArea>
 
-                        {/* Input Area */}
-                        <div className="p-4 bg-background border-t border-border">
-                            <div className="max-w-3xl mx-auto relative">
-                                <Textarea 
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if(e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleSendMessage();
-                                        }
-                                    }}
-                                    placeholder="Type a message..."
-                                    className="min-h-[60px] pr-12 resize-none shadow-sm text-sm bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30"
-                                />
-                                <Button 
-                                    size="icon" 
-                                    className="absolute right-2 bottom-2 h-8 w-8"
-                                    onClick={handleSendMessage}
-                                    disabled={!input.trim()}
-                                >
-                                    <Send className="w-4 h-4" />
-                                </Button>
+                        {/* FLOATING INPUT */}
+                        <div className="absolute bottom-6 left-0 right-0 px-6 z-20 pointer-events-none">
+                            <div className="max-w-3xl mx-auto relative group pointer-events-auto">
+                                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-purple-500/30 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                                <div className="relative flex items-end gap-2 bg-background/80 backdrop-blur-xl border border-border/50 rounded-3xl p-2 shadow-2xl">
+                                    <Textarea 
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if(e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSendMessage();
+                                            }
+                                        }}
+                                        placeholder="Describe your plan or ask for a code review..."
+                                        className="min-h-[50px] max-h-[200px] w-full resize-none bg-transparent border-0 focus-visible:ring-0 text-sm py-3 px-4 shadow-none"
+                                    />
+                                    <Button 
+                                        size="icon" 
+                                        className="mb-1 mr-1 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 shrink-0 transition-all"
+                                        onClick={handleSendMessage}
+                                        disabled={!input.trim()}
+                                    >
+                                        {input.trim() ? <Send className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+                                    </Button>
+                                </div>
+                                <div className="text-center mt-2 text-[10px] text-muted-foreground/50">
+                                    AI Architect can make mistakes. Please verify important code requirements.
+                                </div>
                             </div>
                         </div>
+
                     </div>
                 </ResizablePanel>
 
-                {/* --- DRAGGABLE HANDLE --- */}
-                <ResizableHandle withHandle />
+                <ResizableHandle withHandle className="bg-border/50 transition-colors hover:bg-primary/50 w-1" />
 
-                {/* --- RIGHT PANEL: DOCUMENT --- */}
+                {/* --- RIGHT PANEL --- */}
                 <ResizablePanel defaultSize={40} minSize={25} maxSize={70} collapsible={true} collapsedSize={0}>
                     <DocumentPanel sections={sections} />
                 </ResizablePanel>

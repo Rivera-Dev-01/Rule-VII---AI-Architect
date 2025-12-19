@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
+import * as ResizablePanels from "react-resizable-panels"
+const { Panel, PanelGroup, PanelResizeHandle } = ResizablePanels
 import { cn } from "@/lib/utils"
 
 const ResizablePanelGroup = ({
