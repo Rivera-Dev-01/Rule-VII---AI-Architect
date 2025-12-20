@@ -1,3 +1,5 @@
+// frontend/src/types/workspace.ts
+
 export type DocumentStatus = 'draft' | 'approved' | 'rejected';
 
 export interface DocumentSection {
@@ -6,6 +8,8 @@ export interface DocumentSection {
     content: string; 
     status: DocumentStatus;
     lastUpdated: Date;
+    projectId?: string; // Link to a project
+    tags?: string[];
 }
 
 export interface DraftProposal {
@@ -22,11 +26,22 @@ export interface WorkspaceMessage {
     content: string;
     timestamp: Date;
     proposal?: DraftProposal;
-    // ADD THIS NEW SECTION:
     attachment?: {
         name: string;
         type: string;
         size: number;
-        url: string; // Temporary local URL for preview
+        url: string; 
     };
+}
+
+// NEW: Project Definition
+export interface Project {
+    id: string;
+    name: string;
+    description: string;
+    location: string;
+    lastAccessed: Date;
+    fileCount: number;
+    status: 'Active' | 'Archived' | 'Pending';
+    thumbnailClass: string; // CSS class for the gradient placeholder
 }
