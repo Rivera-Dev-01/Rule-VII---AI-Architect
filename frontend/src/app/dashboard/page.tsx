@@ -13,7 +13,10 @@ import {
   Activity,
   Sun,
   Moon,
-  Loader2 
+  Loader2,
+  X,
+  Calendar,
+  MapPin
 } from "lucide-react";
 import { cn } from "@/lib/utils"; 
 import { Button } from "@/components/ui/button";
@@ -37,6 +40,9 @@ export default function DashboardPage() {
   // --- REAL DATA STATE ---
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // --- MODAL STATE ---
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   // 2. Initialize Supabase
   const [supabase] = useState(() => 
@@ -94,14 +100,20 @@ export default function DashboardPage() {
       : 0;
 
   // Determine Trend Text
-  let trendText = "No data yet";
+  // CHANGE: Updated default text per request
+  let trendText = "Begin your R7 AI Analysis"; 
   let trendAlert = false;
   
-  if (averageScore >= 90) trendText = "Excellent Compliance";
-  else if (averageScore >= 70) trendText = "Good Standing";
-  else if (averageScore > 0) {
-      trendText = "Needs Improvement";
-      trendAlert = true;
+  if (projects.length > 0) {
+      if (averageScore >= 90) trendText = "Excellent Compliance";
+      else if (averageScore >= 70) trendText = "Good Standing";
+      else if (averageScore > 0) {
+          trendText = "Needs Improvement";
+          trendAlert = true;
+      } else {
+        // If projects exist but score is 0
+        trendText = "Pending Scoring";
+      }
   }
 
   const toggleTheme = () => {
@@ -115,7 +127,7 @@ export default function DashboardPage() {
     <div className="flex min-h-screen bg-neutral-50/40 dark:bg-neutral-950 text-foreground font-sans selection:bg-primary/10">
       <Sidebar />
       
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative">
         <Header />
         
         <main className="flex-1 p-8 lg:p-12 space-y-12 overflow-y-auto">
@@ -136,11 +148,9 @@ export default function DashboardPage() {
                     <Button variant="ghost" size="icon" onClick={toggleTheme} className="mr-2">
                         {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                     </Button>
-                    <Button variant="outline" className="h-10 px-6 text-xs font-sans uppercase tracking-widest border-primary/20 hover:border-primary/50 transition-colors">
-                        Docs
-                    </Button>
                     
-                    {/* RESTORED LINK: /dashboard/new */}
+                    {/* REMOVED: Docs Button */}
+                    
                     <Link href="/dashboard/new">
                         <Button 
                             className="h-10 px-6 text-xs font-sans uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"
@@ -162,7 +172,8 @@ export default function DashboardPage() {
                 />
                 <TechnicalCard 
                     label="Compliance Index" 
-                    value={averageScore > 0 ? `${averageScore}%` : "N/A"} 
+                    // CHANGE: Show 0% explicitly instead of N/A
+                    value={`${averageScore}%`} 
                     subValue="AVG. SCORE"
                     icon={Activity} 
                     trend={trendText}
@@ -208,27 +219,37 @@ export default function DashboardPage() {
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                 <FileBox className="w-8 h-8 mb-2 opacity-20" />
                                 <span className="text-xs font-mono">NO_PROJECTS_FOUND</span>
-                                
-                                {/* RESTORED LINK: /dashboard/new */}
                                 <Link href="/dashboard/new" className="mt-2 text-xs text-primary hover:underline">
                                     Start your first analysis
                                 </Link>
                             </div>
                         ) : (
                             projects.slice(0, 5).map((project) => (
-                                <ProjectRow key={project.id} project={project} />
+                                <ProjectRow 
+                                    key={project.id} 
+                                    project={project} 
+                                    onClick={() => setSelectedProject(project)}
+                                />
                             ))
                         )}
                     </div>
                 </div>
             </section>
         </main>
+
+        {/* MODAL OVERLAY */}
+        <ProjectDetailsModal 
+            project={selectedProject} 
+            onClose={() => setSelectedProject(null)} 
+        />
       </div>
     </div>
   );
 }
 
 // --- SUB-COMPONENTS ---
+
+// 1. Technical Card (Unchanged mostly, just logic passed in props)
 function TechnicalCard({ label, value, subValue, icon: Icon, trend, highlight, alert }: any) {
     return (
         <div className={cn(
@@ -269,12 +290,16 @@ function TechnicalCard({ label, value, subValue, icon: Icon, trend, highlight, a
     )
 }
 
-function ProjectRow({ project }: { project: Project }) {
+// 2. Project Row (Added onClick prop)
+function ProjectRow({ project, onClick }: { project: Project, onClick: () => void }) {
     const dateStr = new Date(project.created_at).toLocaleDateString('en-GB');
     const displayScore = project.score || 0; 
 
     return (
-        <div className="group grid grid-cols-1 md:grid-cols-12 items-center gap-4 px-6 py-5 hover:bg-neutral-50/80 dark:hover:bg-neutral-900/50 transition-colors cursor-pointer border-l-2 border-transparent hover:border-primary/50">
+        <div 
+            onClick={onClick}
+            className="group grid grid-cols-1 md:grid-cols-12 items-center gap-4 px-6 py-5 hover:bg-neutral-50/80 dark:hover:bg-neutral-900/50 transition-colors cursor-pointer border-l-2 border-transparent hover:border-primary/50"
+        >
             <div className="col-span-1 md:col-span-5 flex flex-col pl-2">
                 <span className="font-heading font-medium text-lg text-foreground/90 group-hover:text-primary transition-colors">
                     {project.name}
@@ -335,5 +360,90 @@ function StatusIndicator({ status }: { status: string }) {
              {(status === "In Progress" || status === "Active") && <Clock className="w-3 h-3 mr-2" />}
              {status}
         </span>
+    );
+}
+
+// 3. NEW: Project Details Modal
+function ProjectDetailsModal({ project, onClose }: { project: Project | null, onClose: () => void }) {
+    if (!project) return null;
+
+    const displayScore = project.score || 0;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
+            <div 
+                className="bg-background border border-border shadow-2xl rounded-sm w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Modal Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border/50 bg-neutral-50/50 dark:bg-neutral-900/50">
+                    <div className="space-y-1">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">
+                            Project ID: {project.id.slice(0, 8)}
+                        </div>
+                        <h3 className="text-xl font-heading font-medium text-foreground">
+                            {project.name}
+                        </h3>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-sm border border-border/50 space-y-2">
+                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                <Activity className="w-3 h-3" /> Tech Score
+                            </span>
+                            <div className="text-3xl font-mono text-primary">
+                                {displayScore}%
+                            </div>
+                        </div>
+                        <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-sm border border-border/50 space-y-2">
+                             <span className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                <Layers className="w-3 h-3" /> Status
+                            </span>
+                             <div className="mt-1">
+                                <StatusIndicator status={project.status} />
+                             </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                            <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                            <div>
+                                <span className="text-xs font-bold text-foreground block">Location</span>
+                                <span className="text-sm text-muted-foreground">{project.location}</span>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Calendar className="w-4 h-4 text-muted-foreground mt-0.5" />
+                            <div>
+                                <span className="text-xs font-bold text-foreground block">Created At</span>
+                                <span className="text-sm text-muted-foreground">
+                                    {new Date(project.created_at).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-border/50 bg-neutral-50/30 dark:bg-neutral-900/30 flex justify-end gap-2">
+                    <Button variant="outline" onClick={onClose} className="text-xs">
+                        Close
+                    </Button>
+                    <Link href="/dashboard/projects">
+                        <Button className="text-xs bg-primary text-primary-foreground hover:bg-primary/90">
+                        View Full Project
+                        </Button>
+                    </Link>
+                    
+                </div>
+            </div>
+        </div>
     );
 }

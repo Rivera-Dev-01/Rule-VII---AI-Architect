@@ -6,9 +6,7 @@ from app.models.project import ProjectCreate, ProjectDB
 
 router = APIRouter()
 
-# ==========================================
-# 1. GET ALL PROJECTS (Merged Dashboard & My Projects)
-# ==========================================
+# DASHBOARD/PROJECTS
 
 
 @router.get("/", response_model=List[ProjectDB])
@@ -30,9 +28,6 @@ async def get_projects(user: dict = Depends(verify_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ==========================================
-# 2. CREATE PROJECT (Fixed Typo)
-# ==========================================
 @router.post("/", response_model=ProjectDB)
 async def create_project(project: ProjectCreate, user: dict = Depends(verify_token)):
     user_id = user.get('sub')
