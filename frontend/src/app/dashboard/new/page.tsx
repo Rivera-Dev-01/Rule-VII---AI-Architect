@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Sparkles, Scale, ArrowLeft } from "lucide-react";
+import { Scale, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   ResizableHandle, 
@@ -15,9 +14,11 @@ import {
 import DocumentPanel from "@/components/workspace/DocumentPanel";
 import DraftBubble from "@/components/workspace/DraftBubble";
 import MessageBubble from "@/components/chat/MessageBubble"; 
+import InputArea from "@/components/chat/InputArea"; 
+
 import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/workspace";
 
-// --- MOCK DATA ---
+// ... (Keep your MOCK_PROPOSAL code here) ...
 const MOCK_PROPOSAL: DraftProposal = {
     id: "prop-1",
     title: "Ventilation Compliance: Master Bedroom",
@@ -28,28 +29,34 @@ const MOCK_PROPOSAL: DraftProposal = {
 
 export default function WorkspacePage() {
     const router = useRouter();
-    const [input, setInput] = useState("");
     const [sections, setSections] = useState<DocumentSection[]>([]);
     const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
 
-    const handleSendMessage = () => {
-        if (!input.trim()) return;
-
+    const handleSendMessage = (content: string, file: File | null) => {
+        // ... (Keep your handleSendMessage logic exactly as it is) ...
         const userMsg: WorkspaceMessage = { 
             id: Date.now().toString(), 
             role: "user", 
-            content: input, 
-            timestamp: new Date() 
+            content: content, 
+            timestamp: new Date(),
+            attachment: file ? {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                url: URL.createObjectURL(file)
+            } : undefined
         };
         setMessages(prev => [...prev, userMsg]);
-        setInput("");
 
         setTimeout(() => {
-            if (input.toLowerCase().includes("analyze")) {
+            const isAnalysis = content.toLowerCase().includes("analyze") || file;
+            if (isAnalysis) {
                 const aiMsg: WorkspaceMessage = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content: "I've analyzed the ventilation requirements for the residential zones. I found a discrepancy in the Master Bedroom.",
+                    content: file 
+                        ? `I've received "${file.name}". Analyzing the floor plan against Rule VII setbacks...`
+                        : "I've analyzed the ventilation requirements for the residential zones.",
                     timestamp: new Date(),
                     proposal: MOCK_PROPOSAL
                 };
@@ -62,9 +69,10 @@ export default function WorkspacePage() {
                     timestamp: new Date()
                 }]);
             }
-        }, 800);
+        }, 1000);
     };
 
+    // ... (Keep handleApproveDraft and handleRejectDraft) ...
     const handleApproveDraft = (proposal: DraftProposal) => {
         setSections(prev => [...prev, {
             id: proposal.id,
@@ -73,36 +81,22 @@ export default function WorkspacePage() {
             status: "approved",
             lastUpdated: new Date()
         }]);
-        setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "system",
-            content: `Added "${proposal.title}" to the report.`,
-            timestamp: new Date()
-        }]);
     };
 
-    const handleRejectDraft = (id: string) => {
-        setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "Noted. I've discarded that draft. What specific changes would you like?",
-            timestamp: new Date()
-        }]);
-    };
+    const handleRejectDraft = (id: string) => { console.log(id) };
 
     return (
         <div className="h-screen bg-background flex flex-col overflow-hidden">
             <ResizablePanelGroup direction="horizontal" className="flex-1">
                 
                 {/* --- LEFT PANEL --- */}
-                <ResizablePanel defaultSize={60} minSize={30} maxSize={75} className="flex flex-col relative z-10">
+                <ResizablePanel defaultSize={60} minSize={30} maxSize={75} className="flex flex-col relative z-10 border-r border-border/40">
                     <div className="h-full flex flex-col bg-muted/20 dark:bg-zinc-900/50 relative">
                         
                         {/* BACK BUTTON */}
                         <div className="absolute top-4 left-4 z-30">
                             <Button 
-                                variant="ghost" 
-                                size="sm" 
+                                variant="ghost" size="sm" 
                                 className="text-muted-foreground hover:text-foreground transition-colors gap-2"
                                 onClick={() => router.push('/dashboard')}
                             >
@@ -111,21 +105,12 @@ export default function WorkspacePage() {
                             </Button>
                         </div>
 
+                        {/* CHAT SCROLL AREA */}
                         <ScrollArea className="flex-1 px-4 lg:px-8">
-                            {/* 
-                               FIX: Changed height to 'h-[calc(100vh-2rem)]' 
-                               This forces the container to fill the screen vertically,
-                               so 'justify-center' works correctly.
-                            */}
-                            <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-2rem)] py-6 pt-14">
+                            <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-2rem)] py-6 pt-14">
                                 
                                 {messages.length === 0 ? (
-                                    /* 
-                                       CENTERING LOGIC:
-                                       flex-1 expands to fill space.
-                                       justify-center puts content in middle.
-                                       pb-20 offsets the floating input bar so it looks visually centered.
-                                    */
+                                    // EMPTY STATE
                                     <div className="flex-1 flex flex-col items-center justify-center pb-20 opacity-90">
                                         <div className="mb-8 relative group cursor-default">
                                             <div className="absolute -inset-2 bg-gradient-to-tr from-primary/20 to-purple-500/20 rounded-3xl blur-lg opacity-40 group-hover:opacity-60 transition duration-500"></div>
@@ -133,18 +118,22 @@ export default function WorkspacePage() {
                                                 <Scale className="w-10 h-10 stroke-[2.5]" />
                                             </div>
                                         </div>
-
                                         <h2 className="text-xl font-heading font-medium text-foreground">Rule VII Architect</h2>
                                         <p className="text-sm text-muted-foreground mt-2 text-center max-w-sm">
                                             I am ready to analyze your floor plans against the National Building Code.
                                         </p>
                                     </div>
                                 ) : (
-                                    /* MESSAGES (Just standard layout) */
-                                    <div className="space-y-4 pb-4">
+                                    // MESSAGES
+                                    <div className="space-y-4 pb-32"> {/* Large bottom padding for floating input */}
                                         {messages.map((msg) => (
                                             <div key={msg.id}>
-                                                <MessageBubble role={msg.role} content={msg.content} />
+                                                <MessageBubble 
+                                                    role={msg.role} 
+                                                    content={msg.content} 
+                                                    proposal={msg.proposal}
+                                                    attachment={msg.attachment}
+                                                />
                                                 {msg.proposal && (
                                                     <DraftBubble 
                                                         proposal={msg.proposal}
@@ -154,41 +143,19 @@ export default function WorkspacePage() {
                                                 )}
                                             </div>
                                         ))}
-                                        <div className="h-32" /> 
                                     </div>
                                 )}
                             </div>
                         </ScrollArea>
 
-                        {/* FLOATING INPUT */}
-                        <div className="absolute bottom-6 left-0 right-0 px-6 z-20 pointer-events-none">
-                            <div className="max-w-3xl mx-auto relative group pointer-events-auto">
-                                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-purple-500/30 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-                                <div className="relative flex items-end gap-2 bg-background/80 backdrop-blur-xl border border-border/50 rounded-3xl p-2 shadow-2xl">
-                                    <Textarea 
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if(e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleSendMessage();
-                                            }
-                                        }}
-                                        placeholder="Describe your plan or ask for a code review..."
-                                        className="min-h-[50px] max-h-[200px] w-full resize-none bg-transparent border-0 focus-visible:ring-0 text-sm py-3 px-4 shadow-none"
-                                    />
-                                    <Button 
-                                        size="icon" 
-                                        className="mb-1 mr-1 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 shrink-0 transition-all"
-                                        onClick={handleSendMessage}
-                                        disabled={!input.trim()}
-                                    >
-                                        {input.trim() ? <Send className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
-                                    </Button>
-                                </div>
-                                <div className="text-center mt-2 text-[10px] text-muted-foreground/50">
-                                    AI Architect can make mistakes. Please verify important code requirements.
-                                </div>
+                        {/* --- FLOATING INPUT AREA --- */}
+                        <div className="absolute bottom-0 left-0 right-0 z-20">
+                            {/* GRADIENT FADE: This hides messages scrolling behind the input */}
+                            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
+                            
+                            {/* THE INPUT COMPONENT */}
+                            <div className="relative z-30 pb-4">
+                                <InputArea onSendMessage={handleSendMessage} />
                             </div>
                         </div>
 

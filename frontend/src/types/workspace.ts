@@ -21,5 +21,12 @@ export interface WorkspaceMessage {
     role: 'user' | 'assistant' | 'system';
     content: string;
     timestamp: Date;
-    proposal?: DraftProposal; 
+    proposal?: DraftProposal;
+    // ADD THIS NEW SECTION:
+    attachment?: {
+        name: string;
+        type: string;
+        size: number;
+        url: string; // Temporary local URL for preview
+    };
 }
