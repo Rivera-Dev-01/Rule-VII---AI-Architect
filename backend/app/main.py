@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import chat, analyze, auth
+from app.api.v1 import chat, analyze, auth, projects
 from app.core.security import verify_token  # <--- Import the security function
 
 app = FastAPI(
@@ -32,6 +32,16 @@ app.include_router(
     tags=["analyze"],
     dependencies=[Depends(verify_token)]  # <--- This locks the door
 )
+
+app.include_router(
+    projects.router,
+    # This sets the URL to http://localhost:8000/api/v1/projects
+    prefix="/api/v1/projects",
+    tags=["projects"],
+    # This protects ALL project routes automatically
+    dependencies=[Depends(verify_token)]
+)
+
 
 # --- PUBLIC ROUTES (Leave these open) ---
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])

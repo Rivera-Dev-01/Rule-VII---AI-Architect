@@ -17,7 +17,6 @@ export default function ChatInterface() {
     }
   }, [messages]);
 
-  // Updated handler to accept content AND file
   const handleSendMessage = (content: string, file: File | null) => {
     // 1. Create User Message
     const userMsg: WorkspaceMessage = {
@@ -30,6 +29,7 @@ export default function ChatInterface() {
     setMessages((prev) => [...prev, userMsg]);
 
     // 2. Simulate AI Response (Mock)
+    // In the future, you will send 'file' to your backend here
     setTimeout(() => {
       const isAnalysisRequest = content.toLowerCase().includes("analyze") || file;
       
@@ -54,9 +54,10 @@ export default function ChatInterface() {
     }, 1000);
   };
 
+  // Handler for adding to project (passed down to MessageBubble)
   const handleApproveProposal = (proposal: DraftProposal) => {
      console.log("Adding to project:", proposal);
-     // Note: In your full app, you might pass this handler up to page.tsx
+     // You would likely pass this up to page.tsx via a prop if page.tsx holds the DocumentPanel state
   };
 
   return (

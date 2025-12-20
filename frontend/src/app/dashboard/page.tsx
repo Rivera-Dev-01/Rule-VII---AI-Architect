@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { createBrowserClient } from '@supabase/ssr'; // Ensure @supabase/ssr is installed
 import { 
   ArrowUpRight, 
   CheckCircle2, 
@@ -11,45 +12,89 @@ import {
   Layers,
   Activity,
   Sun,
-  Moon
+  Moon,
+  Loader2 
 } from "lucide-react";
 import { cn } from "@/lib/utils"; 
 import { Button } from "@/components/ui/button";
-
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 
-// --- DUMMY DATA ---
-const RECENT_PROJECTS = [
-  { id: 1, name: "Taguig Residential Tower A", location: "BGC, Taguig", date: "2024-05-12", status: "Compliant", score: 98 },
-  { id: 2, name: "Makati Commercial Complex", location: "Ayala Ave, Makati", date: "2024-05-10", status: "Issues Found", score: 72 },
-  { id: 3, name: "Pasig Mixed-Use Renovation", location: "Ortigas, Pasig", date: "2024-05-08", status: "In Progress", score: 0 },
-  { id: 4, name: "Quezon City Bungalow", location: "Loyola Heights, QC", date: "2024-05-01", status: "Compliant", score: 100 },
-];
+// 1. Define the Interface
+interface Project {
+  id: string;
+  name: string;
+  location: string;
+  status: string;
+  created_at: string; 
+  score?: number;     
+}
 
 export default function DashboardPage() {
-  // Format date like a blueprint stamp: "FRIDAY, 12 MAY 2024"
   const currentDate = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
-
-  // --- THEME LOGIC ---
   const [isDark, setIsDark] = useState(false);
+  
+  // --- REAL DATA STATE ---
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sync state with document class on mount
+  // 2. CRITICAL FIX: Initialize Supabase properly
+  // We use useState so it is only created ONCE.
+  const [supabase] = useState(() => 
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  );
+
+  // 3. Fetch Data
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isSystemDark = document.documentElement.classList.contains('dark');
-      setIsDark(isSystemDark);
+    async function fetchProjects() {
+      try {
+        // A. Get Session Token
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // If no user is logged in, we can't fetch private projects
+        if (!session) {
+            console.log("No session found");
+            setIsLoading(false);
+            return;
+        }
+
+        // B. Call FastAPI
+        const res = await fetch("http://localhost:8000/api/v1/projects/", {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${session.access_token}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch projects");
+
+        const data = await res.json();
+        setProjects(data);
+      } catch (error) {
+        console.error("Dashboard Load Error:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, []);
+
+    fetchProjects();
+    
+    // Theme Logic
+    if (typeof window !== 'undefined') {
+        const isSystemDark = document.documentElement.classList.contains('dark');
+        setIsDark(isSystemDark);
+    }
+  }, [supabase]); // Safe to include 'supabase' here because it's stable from useState
 
   const toggleTheme = () => {
     const newMode = !isDark;
     setIsDark(newMode);
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (newMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   };
 
   return (
@@ -61,7 +106,7 @@ export default function DashboardPage() {
         
         <main className="flex-1 p-8 lg:p-12 space-y-12 overflow-y-auto">
             
-            {/* 1. WELCOME SECTION - Editorial Style */}
+            {/* WELCOME SECTION */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-border/40">
                 <div>
                     <div className="text-[10px] font-mono text-muted-foreground tracking-widest mb-3 flex items-center gap-2">
@@ -73,36 +118,29 @@ export default function DashboardPage() {
                     </h2>
                 </div>
                 
-                {/* ACTIONS TOOLBAR */}
                 <div className="flex items-center gap-3">
-                    {/* Theme Toggle Only */}
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={toggleTheme}
-                        className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors mr-2"
-                        title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                    >
+                    <Button variant="ghost" size="icon" onClick={toggleTheme} className="mr-2">
                         {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                     </Button>
-
                     <Button variant="outline" className="h-10 px-6 text-xs font-sans uppercase tracking-widest border-primary/20 hover:border-primary/50 transition-colors">
                         Docs
                     </Button>
-                    <Button className="h-10 px-6 text-xs font-sans uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90">
-                        New Analysis <ArrowUpRight className="ml-2 h-3 w-3" />
-                    </Button>
+                    <Link href="/dashboard/new">
+                        <Button className="h-10 px-6 text-xs font-sans uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90">
+                            New Analysis <ArrowUpRight className="ml-2 h-3 w-3" />
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
-            {/* 2. METRIC GRID - Blueprint Spec Style */}
+            {/* METRIC GRID */}
             <div className="grid gap-6 md:grid-cols-3">
                 <TechnicalCard 
                     label="Active Projects" 
-                    value="12" 
+                    value={isLoading ? "-" : projects.length.toString()} 
                     subValue="TOTAL"
                     icon={Layers} 
-                    trend="+2 this week"
+                    trend={`Updated just now`}
                 />
                 <TechnicalCard 
                     label="Compliance Index" 
@@ -114,15 +152,15 @@ export default function DashboardPage() {
                 />
                 <TechnicalCard 
                     label="Plan Usage" 
-                    value="4" 
-                    subValue="OF 5 SLOTS"
+                    value={isLoading ? "-" : projects.length.toString()} 
+                    subValue="USED"
                     icon={FileBox} 
-                    trend="1 analysis remaining"
+                    trend="Limit: 5 Projects"
                     alert
                 />
             </div>
 
-            {/* 3. RECENT PROJECTS - Minimalist Table */}
+            {/* RECENT PROJECTS TABLE */}
             <section className="space-y-6">
                 <div className="flex items-center justify-between px-1">
                     <h3 className="text-sm font-sans font-medium uppercase tracking-widest text-muted-foreground/80">
@@ -133,8 +171,7 @@ export default function DashboardPage() {
                     </Link>
                 </div>
 
-                <div className="border border-border/40 rounded-sm bg-background/50 backdrop-blur-sm shadow-sm overflow-hidden">
-                    {/* Table Header */}
+                <div className="border border-border/40 rounded-sm bg-background/50 backdrop-blur-sm shadow-sm overflow-hidden min-h-[200px]">
                     <div className="hidden md:grid grid-cols-12 px-6 py-4 border-b border-border/40 bg-neutral-100/30 dark:bg-neutral-900/30 text-[10px] uppercase tracking-widest font-medium text-muted-foreground/70">
                         <div className="col-span-5 pl-2">Project Identity</div>
                         <div className="col-span-3">Status Check</div>
@@ -143,9 +180,25 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="divide-y divide-border/30">
-                        {RECENT_PROJECTS.map((project) => (
-                            <ProjectRow key={project.id} project={project} />
-                        ))}
+                        {isLoading ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                                <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                                <span className="text-xs font-mono">LOADING_DATA...</span>
+                            </div>
+                        ) : projects.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                                <FileBox className="w-8 h-8 mb-2 opacity-20" />
+                                <span className="text-xs font-mono">NO_PROJECTS_FOUND</span>
+                                <Link href="/dashboard/new" className="mt-2 text-xs text-primary hover:underline">
+                                    Start your first analysis
+                                </Link>
+                            </div>
+                        ) : (
+                            // Slice to show only top 5 recent projects
+                            projects.slice(0, 5).map((project) => (
+                                <ProjectRow key={project.id} project={project} />
+                            ))
+                        )}
                     </div>
                 </div>
             </section>
@@ -198,7 +251,11 @@ function TechnicalCard({ label, value, subValue, icon: Icon, trend, highlight, a
     )
 }
 
-function ProjectRow({ project }: any) {
+function ProjectRow({ project }: { project: Project }) {
+    // Generate a formatted date from the backend timestamp
+    const dateStr = new Date(project.created_at).toLocaleDateString('en-GB');
+    const displayScore = project.score || 0; 
+
     return (
         <div className="group grid grid-cols-1 md:grid-cols-12 items-center gap-4 px-6 py-5 hover:bg-neutral-50/80 dark:hover:bg-neutral-900/50 transition-colors cursor-pointer border-l-2 border-transparent hover:border-primary/50">
             <div className="col-span-1 md:col-span-5 flex flex-col pl-2">
@@ -206,29 +263,29 @@ function ProjectRow({ project }: any) {
                     {project.name}
                 </span>
                 <span className="text-xs font-mono text-muted-foreground flex items-center gap-1 mt-1">
-                    LOCATION: {project.location.toUpperCase()}
+                    LOCATION: {project.location ? project.location.toUpperCase() : "UNKNOWN"}
                 </span>
             </div>
 
             <div className="col-span-1 md:col-span-3">
-                <StatusIndicator status={project.status} />
+                <StatusIndicator status={project.status || "Unknown"} />
             </div>
 
             <div className="col-span-1 md:col-span-2 md:text-center">
                 <div className="inline-flex flex-col items-center gap-1">
                     <span className={cn("font-mono text-xl tracking-tighter", 
-                        project.score >= 90 ? "text-emerald-600" : 
-                        project.score >= 70 ? "text-amber-600" : "text-muted-foreground"
+                        displayScore >= 90 ? "text-emerald-600" : 
+                        displayScore >= 70 ? "text-amber-600" : "text-muted-foreground"
                     )}>
-                        {project.score > 0 ? project.score : "N/A"}
+                        {displayScore > 0 ? displayScore : "N/A"}
                     </span>
                     <div className="h-0.5 w-12 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
                         <div 
                             className={cn("h-full", 
-                                project.score >= 90 ? "bg-emerald-500" : 
-                                project.score >= 70 ? "bg-amber-500" : "bg-transparent"
+                                displayScore >= 90 ? "bg-emerald-500" : 
+                                displayScore >= 70 ? "bg-amber-500" : "bg-transparent"
                             )} 
-                            style={{ width: `${project.score}%` }} 
+                            style={{ width: `${displayScore}%` }} 
                         />
                     </div>
                 </div>
@@ -236,7 +293,7 @@ function ProjectRow({ project }: any) {
 
             <div className="col-span-1 md:col-span-2 text-right pr-2">
                 <span className="font-mono text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-                    {project.date.replace(/-/g, '.')}
+                    {dateStr.replace(/\//g, '.')}
                 </span>
             </div>
         </div>
@@ -244,17 +301,20 @@ function ProjectRow({ project }: any) {
 }
 
 function StatusIndicator({ status }: { status: string }) {
-    const styles = {
+    const styles: Record<string, string> = {
         "Compliant": "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-400",
         "Issues Found": "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-900 dark:text-rose-400",
         "In Progress": "text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-400",
-    }[status] || "text-muted-foreground bg-neutral-100 border-neutral-200";
+        "Active": "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-400",
+    };
+    
+    const styleClass = styles[status] || "text-muted-foreground bg-neutral-100 border-neutral-200";
 
     return (
-        <span className={cn("inline-flex items-center px-3 py-1 rounded-sm text-[10px] uppercase tracking-widest font-medium border", styles)}>
+        <span className={cn("inline-flex items-center px-3 py-1 rounded-sm text-[10px] uppercase tracking-widest font-medium border", styleClass)}>
              {status === "Compliant" && <CheckCircle2 className="w-3 h-3 mr-2" />}
-             {status === "Issues Found" && <AlertTriangle className="w-3 h-3 mr-2" />}
-             {status === "In Progress" && <Clock className="w-3 h-3 mr-2" />}
+             {(status === "Issues Found" || status === "Issues") && <AlertTriangle className="w-3 h-3 mr-2" />}
+             {(status === "In Progress" || status === "Active") && <Clock className="w-3 h-3 mr-2" />}
              {status}
         </span>
     );
