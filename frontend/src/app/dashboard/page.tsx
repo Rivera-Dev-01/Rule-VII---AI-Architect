@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { createBrowserClient } from '@supabase/ssr'; // Ensure @supabase/ssr is installed
+import { createClient } from '@supabase/supabase-js';
 import { 
   ArrowUpRight, 
   CheckCircle2, 
@@ -38,49 +38,45 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 2. CRITICAL FIX: Initialize Supabase properly
-  // We use useState so it is only created ONCE.
+  // 2. Initialize Supabase
   const [supabase] = useState(() => 
-    createBrowserClient(
+    createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
   );
 
-  // 3. Fetch Data
-  useEffect(() => {
-    async function fetchProjects() {
-      try {
-        // A. Get Session Token
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        // If no user is logged in, we can't fetch private projects
-        if (!session) {
-            console.log("No session found");
-            setIsLoading(false);
-            return;
-        }
-
-        // B. Call FastAPI
-        const res = await fetch("http://localhost:8000/api/v1/projects/", {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${session.access_token}`,
-                "Content-Type": "application/json"
-            }
-        });
-
-        if (!res.ok) throw new Error("Failed to fetch projects");
-
-        const data = await res.json();
-        setProjects(data);
-      } catch (error) {
-        console.error("Dashboard Load Error:", error);
-      } finally {
-        setIsLoading(false);
+  // 3. Fetch Data Function
+  async function fetchProjects() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+          setIsLoading(false);
+          return;
       }
-    }
 
+      const res = await fetch("http://localhost:8000/api/v1/projects/", {
+          method: "GET",
+          headers: {
+              "Authorization": `Bearer ${session.access_token}`,
+              "Content-Type": "application/json"
+          }
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch projects");
+
+      const data = await res.json();
+      setProjects(data);
+    } catch (error) {
+      console.error("Dashboard Load Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // Initial Load
+  useEffect(() => {
     fetchProjects();
     
     // Theme Logic
@@ -88,7 +84,25 @@ export default function DashboardPage() {
         const isSystemDark = document.documentElement.classList.contains('dark');
         setIsDark(isSystemDark);
     }
-  }, [supabase]); // Safe to include 'supabase' here because it's stable from useState
+  }, [supabase]);
+
+  // --- 4. CALCULATE DASHBOARD METRICS ---
+  const scoredProjects = projects.filter(p => p.score && p.score > 0);
+  const totalScore = scoredProjects.reduce((sum, p) => sum + (p.score || 0), 0);
+  const averageScore = scoredProjects.length > 0 
+      ? Math.round(totalScore / scoredProjects.length) 
+      : 0;
+
+  // Determine Trend Text
+  let trendText = "No data yet";
+  let trendAlert = false;
+  
+  if (averageScore >= 90) trendText = "Excellent Compliance";
+  else if (averageScore >= 70) trendText = "Good Standing";
+  else if (averageScore > 0) {
+      trendText = "Needs Improvement";
+      trendAlert = true;
+  }
 
   const toggleTheme = () => {
     const newMode = !isDark;
@@ -125,8 +139,12 @@ export default function DashboardPage() {
                     <Button variant="outline" className="h-10 px-6 text-xs font-sans uppercase tracking-widest border-primary/20 hover:border-primary/50 transition-colors">
                         Docs
                     </Button>
+                    
+                    {/* RESTORED LINK: /dashboard/new */}
                     <Link href="/dashboard/new">
-                        <Button className="h-10 px-6 text-xs font-sans uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90">
+                        <Button 
+                            className="h-10 px-6 text-xs font-sans uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"
+                        >
                             New Analysis <ArrowUpRight className="ml-2 h-3 w-3" />
                         </Button>
                     </Link>
@@ -144,10 +162,11 @@ export default function DashboardPage() {
                 />
                 <TechnicalCard 
                     label="Compliance Index" 
-                    value="85%" 
+                    value={averageScore > 0 ? `${averageScore}%` : "N/A"} 
                     subValue="AVG. SCORE"
                     icon={Activity} 
-                    trend="Top 10% performance"
+                    trend={trendText}
+                    alert={trendAlert}
                     highlight
                 />
                 <TechnicalCard 
@@ -156,7 +175,7 @@ export default function DashboardPage() {
                     subValue="USED"
                     icon={FileBox} 
                     trend="Limit: 5 Projects"
-                    alert
+                    alert={projects.length >= 5}
                 />
             </div>
 
@@ -189,12 +208,13 @@ export default function DashboardPage() {
                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                 <FileBox className="w-8 h-8 mb-2 opacity-20" />
                                 <span className="text-xs font-mono">NO_PROJECTS_FOUND</span>
+                                
+                                {/* RESTORED LINK: /dashboard/new */}
                                 <Link href="/dashboard/new" className="mt-2 text-xs text-primary hover:underline">
                                     Start your first analysis
                                 </Link>
                             </div>
                         ) : (
-                            // Slice to show only top 5 recent projects
                             projects.slice(0, 5).map((project) => (
                                 <ProjectRow key={project.id} project={project} />
                             ))
@@ -202,7 +222,6 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </section>
-
         </main>
       </div>
     </div>
@@ -210,7 +229,6 @@ export default function DashboardPage() {
 }
 
 // --- SUB-COMPONENTS ---
-
 function TechnicalCard({ label, value, subValue, icon: Icon, trend, highlight, alert }: any) {
     return (
         <div className={cn(
@@ -252,7 +270,6 @@ function TechnicalCard({ label, value, subValue, icon: Icon, trend, highlight, a
 }
 
 function ProjectRow({ project }: { project: Project }) {
-    // Generate a formatted date from the backend timestamp
     const dateStr = new Date(project.created_at).toLocaleDateString('en-GB');
     const displayScore = project.score || 0; 
 
@@ -275,9 +292,10 @@ function ProjectRow({ project }: { project: Project }) {
                 <div className="inline-flex flex-col items-center gap-1">
                     <span className={cn("font-mono text-xl tracking-tighter", 
                         displayScore >= 90 ? "text-emerald-600" : 
-                        displayScore >= 70 ? "text-amber-600" : "text-muted-foreground"
+                        displayScore >= 70 ? "text-amber-600" : 
+                        displayScore > 0 ? "text-rose-600" : "text-muted-foreground"
                     )}>
-                        {displayScore > 0 ? displayScore : "N/A"}
+                        {displayScore > 0 ? displayScore : "-"}
                     </span>
                     <div className="h-0.5 w-12 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
                         <div 
