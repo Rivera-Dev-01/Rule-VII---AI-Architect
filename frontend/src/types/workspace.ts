@@ -1,0 +1,47 @@
+// frontend/src/types/workspace.ts
+
+export type DocumentStatus = 'draft' | 'approved' | 'rejected';
+
+export interface DocumentSection {
+    id: string;
+    title: string;
+    content: string; 
+    status: DocumentStatus;
+    lastUpdated: Date;
+    projectId?: string; // Link to a project
+    tags?: string[];
+}
+
+export interface DraftProposal {
+    id: string;
+    title: string;
+    summary: string;
+    proposedContent: string;
+    reasoning: string; 
+}
+
+export interface WorkspaceMessage {
+    id: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    timestamp: Date;
+    proposal?: DraftProposal;
+    attachment?: {
+        name: string;
+        type: string;
+        size: number;
+        url: string; 
+    };
+}
+
+// NEW: Project Definition
+export interface Project {
+    id: string;
+    name: string;
+    description: string;
+    location: string;
+    lastAccessed: Date;
+    fileCount: number;
+    status: 'Active' | 'Archived' | 'Pending';
+    thumbnailClass: string; // CSS class for the gradient placeholder
+}

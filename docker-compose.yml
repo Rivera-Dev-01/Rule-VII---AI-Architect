@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: arch-mentor-backend
+    platform: linux/amd64
+    ports:
+      - "8000:8000"
+    # This tells Docker to load the keys from your backend folder
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - arch-mentor-network
+
+  # Frontend (Development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: arch-mentor-frontend
+    platform: linux/amd64
+    ports:
+      - "3000:3000"
+    # This tells Docker to load the keys from your frontend folder
+    env_file:
+      - ./frontend/.env.local
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - arch-mentor-network
+
+networks:
+  arch-mentor-network:
+    driver: bridge

@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node
+node_modules/
+.next/
+out/
+.vercel
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.production
+.env.development
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data Pipeline
+data-pipeline/raw_docs/*.pdf
+data-pipeline/processed/*.md
+
+# Fine-tuning
+fine-tuning/datasets/*.jsonl
+fine-tuning/notebooks/*.ipynb
+!fine-tuning/notebooks/train_llama3.ipynb
+
+# Models
+*.bin
+*.safetensors
+*.gguf
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Misc
+.pytest_cache/
+.coverage
+htmlcov/

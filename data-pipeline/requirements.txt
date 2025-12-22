@@ -1,0 +1,5 @@
+# Specific libs for data pipeline
+llama-parse==0.3.3
+python-dotenv==1.0.0
+supabase==2.3.4
+sentence-transformers==2.3.1
