@@ -7,23 +7,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: arch-mentor-backend
-<<<<<<< HEAD
     platform: linux/amd64
     ports:
       - "8000:8000"
-    # This tells Docker to load the keys from your backend folder
+    # This version is better because it loads keys automatically from your .env file
     env_file:
       - ./backend/.env
-=======
-    ports:
-      - "8000:8000"
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-      - RUNPOD_API_KEY=${RUNPOD_API_KEY}
-      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
-      - LLAMAPARSE_API_KEY=${LLAMAPARSE_API_KEY}
->>>>>>> a54844c0c0806b07b4cbe8bff03ed360a7462364
     volumes:
       - ./backend:/app
       - ./data:/app/data
@@ -37,23 +26,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.dev
     container_name: arch-mentor-frontend
-<<<<<<< HEAD
     platform: linux/amd64
     ports:
       - "3000:3000"
-    # This tells Docker to load the keys from your frontend folder
+    # This version loads your frontend keys automatically
     env_file:
       - ./frontend/.env.local
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
-=======
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
->>>>>>> a54844c0c0806b07b4cbe8bff03ed360a7462364
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -65,8 +45,4 @@ services:
 
 networks:
   arch-mentor-network:
-<<<<<<< HEAD
     driver: bridge
-=======
-    driver: bridge
->>>>>>> a54844c0c0806b07b4cbe8bff03ed360a7462364
