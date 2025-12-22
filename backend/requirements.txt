@@ -1,23 +1,16 @@
 fastapi==0.109.0
-uvicorn==0.27.0
+uvicorn==0.27.1
 python-dotenv==1.0.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
-<<<<<<< HEAD
-supabase
-groq
+supabase==2.3.4
+groq==0.4.1
 llama-index-core
 llama-index-llms-groq
 llama-index-embeddings-huggingface
 huggingface-hub==0.24.0
-httpx>=0.24.0,<0.26.0
-=======
-supabase==2.3.4
-groq==0.4.1
-llama-index==0.9.48
 sentence-transformers==2.3.1
-httpx==0.26.0
+httpx>=0.24.0,<0.26.0
 requests==2.31.0
->>>>>>> a54844c0c0806b07b4cbe8bff03ed360a7462364
 python-jose==3.3.0
 cryptography
