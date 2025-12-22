@@ -45,6 +45,12 @@ async def create_project(project: ProjectCreate, user: dict = Depends(verify_tok
         raise HTTPException(status_code=400, detail="Project creation failed")
 
 
+<<<<<<< HEAD
+=======
+# ==========================================
+# 3. DELETE PROJECT (Correct Logic)
+# ==========================================
+>>>>>>> a54844c0c0806b07b4cbe8bff03ed360a7462364
 @router.delete("/{project_id}", response_model=ProjectDB)
 async def delete_project(project_id: str, user: dict = Depends(verify_token)):
     user_id = user.get('sub')
