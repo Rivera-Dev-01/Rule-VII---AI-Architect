@@ -6,7 +6,9 @@ from app.models.project import ProjectCreate, ProjectDB
 
 router = APIRouter()
 
-# DASHBOARD/PROJECTS
+# ==========================================
+# 1. GET ALL PROJECTS (Dashboard)
+# ==========================================
 
 
 @router.get("/", response_model=List[ProjectDB])
@@ -28,11 +30,14 @@ async def get_projects(user: dict = Depends(verify_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ==========================================
+# 2. CREATE NEW PROJECT
+# ==========================================
 @router.post("/", response_model=ProjectDB)
 async def create_project(project: ProjectCreate, user: dict = Depends(verify_token)):
     user_id = user.get('sub')
 
-    # FIX: It is 'model_dump()', not 'modal_dump()'
+    # Fix: Use model_dump() for Pydantic v2
     project_data = project.model_dump()
     project_data['user_id'] = user_id
     project_data['status'] = "Active"  # Default status
@@ -45,12 +50,9 @@ async def create_project(project: ProjectCreate, user: dict = Depends(verify_tok
         raise HTTPException(status_code=400, detail="Project creation failed")
 
 
-<<<<<<< HEAD
-=======
 # ==========================================
-# 3. DELETE PROJECT (Correct Logic)
+# 3. DELETE PROJECT
 # ==========================================
->>>>>>> a54844c0c0806b07b4cbe8bff03ed360a7462364
 @router.delete("/{project_id}", response_model=ProjectDB)
 async def delete_project(project_id: str, user: dict = Depends(verify_token)):
     user_id = user.get('sub')
@@ -75,20 +77,19 @@ async def delete_project(project_id: str, user: dict = Depends(verify_token)):
 
 
 # ==========================================
-# 4. UPDATE PROJECT (Fixed Method)
+# 4. UPDATE PROJECT
 # ==========================================
-# We use @router.put for updates, not delete!
 @router.put("/{project_id}", response_model=ProjectDB)
 async def update_project(project_id: str, project_update: ProjectCreate, user: dict = Depends(verify_token)):
     user_id = user.get('sub')
 
-    # We only update the fields the user sent
+    # Only update the fields the user explicitly sent
     update_data = project_update.model_dump(exclude_unset=True)
 
     try:
         response = (
             supabase.table("projects")
-            .update(update_data)  # Pass the new data here
+            .update(update_data)
             .eq("id", project_id)
             .eq("user_id", user_id)
             .execute()
