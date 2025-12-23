@@ -19,12 +19,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# DEBUG: Log all requests
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"🌐 {request.method} {request.url.path}")
+    print(f"📋 Headers: {dict(request.headers)}")
+    response = await call_next(request)
+    print(f"📤 Response status: {response.status_code}")
+    return response
+
 # --- PROTECTED ROUTES (Lock these) ---
 app.include_router(
     chat.router,
     prefix="/api/v1/chat",
     tags=["chat"],
-    dependencies=[Depends(verify_token)]  # <--- This locks the door
+    dependencies=[Depends(verify_token)]  # Apply auth at router level
 )
 app.include_router(
     analyze.router,

@@ -14,7 +14,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     3. If valid, returns the user data.
     4. If fake or expired, throws an error.
     """
+    print(f"🚀 verify_token CALLED")  # DEBUG - check if function is called
     token = credentials.credentials
+    print(f"🎫 TOKEN RECEIVED: {token[:20]}...")  # DEBUG - show first 20 chars
 
     try:
         payload = jwt.decode(
@@ -23,6 +25,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
             algorithms=["HS256"],
             audience="authenticated"
         )
+        print(f"✅ TOKEN VALID: {payload.get('sub')}")  # DEBUG
         return payload
 
     except jwt.ExpiredSignatureError:

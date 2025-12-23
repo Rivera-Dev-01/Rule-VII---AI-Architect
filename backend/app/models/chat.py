@@ -17,3 +17,15 @@ class ChatResponse(BaseModel):
     sources: List[SourceNode]
     conversation_id: str
     proposal: Optional[Dict[str, Any]] = None
+
+class ChatHistoryItem(BaseModel):
+    id: str
+    title: str
+    updated_at: str
+
+class Message(BaseModel):
+    id: str
+    role: str
+    content: str
+    created_at: str
+    proposal: Optional[Dict[str, Any]] = None
