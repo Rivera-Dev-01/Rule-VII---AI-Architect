@@ -60,7 +60,14 @@ export default function WorkspacePage() {
                 role: m.role,
                 content: m.content,
                 timestamp: new Date(m.created_at),
-                proposal: m.proposal
+                proposal: m.proposal ? {
+                    id: m.proposal.id || `prop-${m.id}`,
+                    title: m.proposal.title,
+                    summary: m.proposal.summary,
+                    reasoning: m.proposal.reasoning,
+                    // Check both camelCase and snake_case
+                    proposedContent: m.proposal.proposedContent || m.proposal.proposed_content || ""
+                } : undefined
             })));
         } catch (e) {
             console.error(e);
@@ -148,13 +155,19 @@ export default function WorkspacePage() {
 
     // ... (Keep handleApproveDraft and handleRejectDraft) ...
     const handleApproveDraft = (proposal: DraftProposal) => {
-        setSections(prev => [...prev, {
-            id: proposal.id,
-            title: proposal.title,
-            content: proposal.proposedContent,
-            status: "approved",
-            lastUpdated: new Date()
-        }]);
+        setSections(prev => {
+            if (prev.some(s => s.id === proposal.id)) {
+                // Prevent duplicate sections
+                return prev;
+            }
+            return [...prev, {
+                id: proposal.id,
+                title: proposal.title,
+                content: proposal.proposedContent,
+                status: "approved",
+                lastUpdated: new Date()
+            }];
+        });
     };
 
     const handleRejectDraft = (id: string) => { console.log(id) };
@@ -247,6 +260,7 @@ export default function WorkspacePage() {
                                                     content={msg.content}
                                                     proposal={msg.proposal}
                                                     attachment={msg.attachment}
+                                                    onApprove={handleApproveDraft}
                                                 />
                                                 {msg.proposal && (
                                                     <DraftBubble
