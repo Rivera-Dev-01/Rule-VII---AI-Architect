@@ -1,36 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation"; // Added useRouter
-import { 
-  LayoutDashboard, 
-  FolderOpen, 
-  FileText, 
-  Settings, 
-  PlusCircle, 
-  LogOut 
+import { usePathname, useRouter } from "next/navigation";
+import {
+  LayoutDashboard,
+  FolderOpen,
+  // FileText, (Removed)
+  // Settings, (Removed)
+  PlusCircle,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase"; // Import your existing supabase client
+import { supabase } from "@/lib/supabase";
 
+// Updated Navigation Items
 const NAV_ITEMS = [
   { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
   { label: "My Projects", icon: FolderOpen, href: "/dashboard/projects" },
-  { label: "Saved Reports", icon: FileText, href: "/dashboard/reports" },
-  { label: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
 
   // --- SIGN OUT LOGIC ---
   const handleSignOut = async () => {
     // 1. Clear session from Supabase
     const { error } = await supabase.auth.signOut();
     if (error) console.error("Sign out error:", error);
-    
+
     // 2. Clear Next.js cache and redirect
     router.refresh();
     router.replace("/login");
@@ -49,10 +48,10 @@ export default function Sidebar() {
       <div className="flex-1 py-6 px-4 space-y-2">
         {/* Call to Action */}
         <Link href="/dashboard/new" className="block mb-6">
-            <Button className="w-full justify-start gap-2 shadow-lg shadow-primary/20" size="lg">
+          <Button className="w-full justify-start gap-2 shadow-lg shadow-primary/20" size="lg">
             <PlusCircle size={18} />
             New Analysis
-            </Button>
+          </Button>
         </Link>
 
         {/* Links */}
@@ -65,8 +64,8 @@ export default function Sidebar() {
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  isActive 
-                    ? "bg-primary/10 text-primary" 
+                  isActive
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -80,12 +79,12 @@ export default function Sidebar() {
 
       {/* Footer / Logout */}
       <div className="p-4 border-t border-border">
-        <button 
-            onClick={handleSignOut} // <--- Connected here
-            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-red-500 transition-colors w-full"
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-red-500 transition-colors w-full"
         >
-            <LogOut size={18} />
-            Sign Out
+          <LogOut size={18} />
+          Sign Out
         </button>
       </div>
     </aside>

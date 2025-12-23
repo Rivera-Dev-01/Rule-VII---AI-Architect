@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Scale, ArrowLeft, Loader2, Menu, Plus, MessageSquare } from "lucide-react";
+import { Scale, ArrowLeft, X, Menu, Plus, Loader2, Trash2, MoreHorizontal, Star, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiClient } from "@/lib/api-client";
-import { ChatResponse, ChatHistoryItem } from "@/lib/api-types";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -14,15 +14,24 @@ import {
     ResizablePanelGroup
 } from "@/components/ui/resizable";
 
+// API Client
+import { apiClient } from "@/lib/api-client";
+import { ChatResponse, ChatHistoryItem } from "@/lib/api-types";
+
+// Import components
 import DocumentPanel from "@/components/workspace/DocumentPanel";
 import DraftBubble from "@/components/workspace/DraftBubble";
 import MessageBubble from "@/components/chat/MessageBubble";
 import InputArea from "@/components/chat/InputArea";
 
+// Import Types
 import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/workspace";
 
 export default function WorkspacePage() {
     const router = useRouter();
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Core State
     const [sections, setSections] = useState<DocumentSection[]>([]);
     const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
     const [conversationId, setConversationId] = useState<string | undefined>(undefined);
@@ -31,6 +40,22 @@ export default function WorkspacePage() {
     // History State
     const [history, setHistory] = useState<ChatHistoryItem[]>([]);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+
+    // Feature States for Edit/Revise
+    const [inputOverride, setInputOverride] = useState("");
+    const [editingSection, setEditingSection] = useState<DocumentSection | null>(null);
+    const [editForm, setEditForm] = useState({ title: "", content: "" });
+    const [revisingSection, setRevisingSection] = useState<DocumentSection | null>(null); // Track section being revised
+
+    // Auto-scroll logic
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [messages]);
 
     // Load history on mount
     useEffect(() => {
@@ -54,7 +79,6 @@ export default function WorkspacePage() {
         try {
             // @ts-ignore
             const msgs = await apiClient.chat.getConversation(id);
-            // Map API Message to WorkspaceMessage
             setMessages(msgs.map((m: any) => ({
                 id: m.id,
                 role: m.role,
@@ -65,7 +89,6 @@ export default function WorkspacePage() {
                     title: m.proposal.title,
                     summary: m.proposal.summary,
                     reasoning: m.proposal.reasoning,
-                    // Check both camelCase and snake_case
                     proposedContent: m.proposal.proposedContent || m.proposal.proposed_content || ""
                 } : undefined
             })));
@@ -77,8 +100,6 @@ export default function WorkspacePage() {
         try {
             // @ts-ignore
             const savedProps = await apiClient.chat.getSavedProposals(id);
-
-            // Convert to DocumentSection format
             const savedSections: DocumentSection[] = savedProps.map((p: any) => ({
                 id: p.id || `saved-${Date.now()}`,
                 title: p.title,
@@ -86,7 +107,6 @@ export default function WorkspacePage() {
                 status: 'approved',
                 lastUpdated: new Date(p.created_at || Date.now())
             }));
-
             setSections(savedSections);
         } catch (err) {
             console.error("Failed to fetch proposals", err);
@@ -99,10 +119,158 @@ export default function WorkspacePage() {
     const handleNewChat = () => {
         setConversationId(undefined);
         setMessages([]);
+        setSections([]);
         setIsHistoryOpen(false);
     };
 
+    const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent triggering the select
+
+        // Close the dropdown first
+        setOpenMenuId(null);
+
+        if (!confirm("Delete this conversation? This cannot be undone.")) return;
+
+        // Optimistic update - remove from list
+        setHistory(prev => prev.filter(h => h.id !== id));
+
+        // If we're viewing this conversation, clear it
+        if (conversationId === id) {
+            setConversationId(undefined);
+            setMessages([]);
+            setSections([]);
+        }
+
+        try {
+            await apiClient.chat.deleteConversation(id);
+        } catch (error) {
+            console.error("Failed to delete conversation:", error);
+            // Refetch history on error to restore state
+            const freshHistory = await apiClient.chat.getHistory();
+            setHistory(freshHistory);
+        }
+    };
+
+    const handleToggleFavorite = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setOpenMenuId(null);
+
+        try {
+            // @ts-ignore
+            const result = await apiClient.chat.toggleFavorite(id);
+
+            // Update local state
+            setHistory(prev => {
+                const updated = prev.map(h =>
+                    h.id === id ? { ...h, is_favorite: result.is_favorite } : h
+                );
+                // Re-sort: favorites first, then by date
+                return updated.sort((a, b) => {
+                    if (a.is_favorite && !b.is_favorite) return -1;
+                    if (!a.is_favorite && b.is_favorite) return 1;
+                    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+                });
+            });
+        } catch (error) {
+            console.error("Failed to toggle favorite:", error);
+        }
+    };
+
+    // --- ACTIONS FOR DOCUMENT PANEL ---
+    const handleDeleteSection = async (id: string) => {
+        if (!confirm("Delete this section?")) return;
+
+        // Optimistic update
+        setSections(prev => prev.filter(s => s.id !== id));
+
+        // Call backend
+        try {
+            // @ts-ignore
+            await apiClient.chat.deleteProposal(id);
+        } catch (error) {
+            console.error("Failed to delete:", error);
+            // Optionally: revert optimistic update or show toast
+        }
+    };
+
+    const handleReviseSection = (section: DocumentSection) => {
+        setRevisingSection(section); // Track which section is being revised
+        const prompt = `I need to revise the section "${section.title}".\n\nCurrent Content:\n"${section.content.slice(0, 500)}..."\n\nChanges needed: `;
+        setInputOverride(prompt);
+    };
+
+    const handleEditSection = (section: DocumentSection) => {
+        setEditingSection(section);
+        setEditForm({ title: section.title, content: section.content });
+    };
+
+    const saveSectionEdit = async () => {
+        if (!editingSection) return;
+
+        // Optimistic update
+        setSections(prev => prev.map(s => s.id === editingSection.id ? {
+            ...s,
+            title: editForm.title,
+            content: editForm.content,
+            lastUpdated: new Date()
+        } : s));
+
+        // Call backend
+        try {
+            // @ts-ignore
+            await apiClient.chat.updateProposal(editingSection.id, {
+                title: editForm.title,
+                summary: "", // Keep existing or update
+                content: editForm.content
+            });
+        } catch (error) {
+            console.error("Failed to update:", error);
+        }
+
+        setEditingSection(null);
+    };
+
+    const handleEditPrompt = (content: string) => {
+        setInputOverride(content);
+    };
+
+    // Add AI response directly to draft (simple version without proposal structure)
+    const handleAddToDraft = async (content: string) => {
+        const newSection: DocumentSection = {
+            id: `draft-${Date.now()}`,
+            title: "AI Response",
+            content: content,
+            status: "approved",
+            lastUpdated: new Date()
+        };
+
+        setSections(prev => [newSection, ...prev]);
+
+        // Save to backend if we have a conversation
+        if (conversationId) {
+            try {
+                const payload = {
+                    conversation_id: conversationId,
+                    title: "AI Response",
+                    summary: content.slice(0, 100) + "...",
+                    content: content
+                };
+                // @ts-ignore
+                const savedProposal = await apiClient.chat.saveProposal(payload);
+                if (savedProposal?.id) {
+                    setSections(prev => prev.map(s =>
+                        s.id === newSection.id ? { ...s, id: savedProposal.id } : s
+                    ));
+                }
+            } catch (error) {
+                console.error("Error saving draft:", error);
+            }
+        }
+    };
+
+    // --- MAIN SEND MESSAGE WITH BACKEND ---
     const handleSendMessage = async (content: string, file: File | null) => {
+        setInputOverride(""); // Clear override
         if (!content && !file) return;
 
         // 1. Optimistic UI: Add user message immediately
@@ -115,7 +283,7 @@ export default function WorkspacePage() {
                 name: file.name,
                 type: file.type,
                 size: file.size,
-                url: URL.createObjectURL(file) // Local preview
+                url: URL.createObjectURL(file)
             } : undefined
         };
         setMessages(prev => [...prev, userMsg]);
@@ -124,24 +292,30 @@ export default function WorkspacePage() {
         try {
             let data: ChatResponse;
 
-            // 2. Route the request: File Analysis vs. Text Chat
             if (file) {
-                // CASE A: File Upload (Analysis)
                 data = await apiClient.analyze.upload(file, content);
             } else {
-                // CASE B: Standard Text Chat
                 data = await apiClient.chat.send({
                     message: content,
                     conversation_id: conversationId,
                 });
             }
 
-            // 3. Update Conversation ID (if backend created a new session)
             if (data.conversation_id) {
                 setConversationId(data.conversation_id);
+
+                // If this is a new conversation, add it to history immediately
+                if (!conversationId) {
+                    const newHistoryItem: ChatHistoryItem = {
+                        id: data.conversation_id,
+                        title: content.slice(0, 60) + (content.length > 60 ? "..." : ""),
+                        updated_at: new Date().toISOString(),
+                        is_favorite: false
+                    };
+                    setHistory(prev => [newHistoryItem, ...prev]);
+                }
             }
 
-            // 4. Create AI Message from Response
             const aiMsg: WorkspaceMessage = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
@@ -160,7 +334,6 @@ export default function WorkspacePage() {
 
         } catch (error: any) {
             console.error("Workspace Chat Error:", error);
-
             const errorMsg: WorkspaceMessage = {
                 id: (Date.now() + 2).toString(),
                 role: "system",
@@ -173,14 +346,12 @@ export default function WorkspacePage() {
         }
     };
 
-    // ... (Keep handleApproveDraft and handleRejectDraft) ...
     const handleApproveDraft = async (proposal: DraftProposal) => {
         if (!conversationId) {
             alert("No active conversation found to save this proposal to.");
             return;
         }
 
-        // 1. Optimistic Update
         const newSection: DocumentSection = {
             id: proposal.id,
             title: proposal.title,
@@ -189,36 +360,70 @@ export default function WorkspacePage() {
             lastUpdated: new Date()
         };
 
-        setSections(prev => {
-            if (prev.some(s => s.id === proposal.id)) return prev;
-            return [newSection, ...prev]; // Add to top
-        });
+        // Check if we're in revision mode (updating an existing section)
+        if (revisingSection) {
+            // UPDATE existing section
+            setSections(prev => prev.map(s =>
+                s.id === revisingSection.id ? {
+                    ...s,
+                    title: proposal.title,
+                    content: proposal.proposedContent,
+                    lastUpdated: new Date()
+                } : s
+            ));
 
-        // 2. Persist to Backend
-        try {
-            const payload = {
-                conversation_id: conversationId,
-                title: proposal.title,
-                summary: proposal.summary,
-                content: proposal.proposedContent || proposal.reasoning || ""
-            };
+            // Update in backend
+            try {
+                // @ts-ignore
+                await apiClient.chat.updateProposal(revisingSection.id, {
+                    title: proposal.title,
+                    summary: proposal.summary,
+                    content: proposal.proposedContent || ""
+                });
+            } catch (error) {
+                console.error("Error updating proposal:", error);
+            }
 
-            // @ts-ignore
-            await apiClient.chat.saveProposal(payload);
+            setRevisingSection(null); // Clear revision mode
+        } else {
+            // ADD new section (original behavior)
+            setSections(prev => {
+                if (prev.some(s => s.id === proposal.id)) return prev;
+                return [newSection, ...prev];
+            });
 
-        } catch (error) {
-            console.error("Error saving proposal:", error);
-            // Optional: Show toaster or revert state
+            try {
+                const payload = {
+                    conversation_id: conversationId,
+                    title: proposal.title,
+                    summary: proposal.summary,
+                    content: proposal.proposedContent || proposal.reasoning || ""
+                };
+                // @ts-ignore
+                const savedProposal = await apiClient.chat.saveProposal(payload);
+
+                // Update the section ID with the backend-generated ID
+                if (savedProposal?.id) {
+                    setSections(prev => prev.map(s =>
+                        s.id === proposal.id ? { ...s, id: savedProposal.id } : s
+                    ));
+                }
+            } catch (error) {
+                console.error("Error saving proposal:", error);
+            }
         }
     };
 
-    const handleRejectDraft = (id: string) => { console.log(id) };
+    const handleRejectDraft = (id: string) => {
+        console.log("Rejected:", id);
+        setRevisingSection(null); // Clear revision mode on reject
+    };
 
     return (
         <div className="h-screen bg-background flex flex-col overflow-hidden">
             <ResizablePanelGroup direction="horizontal" className="flex-1">
 
-                {/* --- LEFT PANEL --- */}
+                {/* --- LEFT PANEL (CHAT) --- */}
                 <ResizablePanel defaultSize={60} minSize={30} maxSize={75} className="flex flex-col relative z-10 border-r border-border/40">
                     <div className="h-full flex flex-col bg-muted/20 dark:bg-zinc-900/50 relative">
 
@@ -231,35 +436,109 @@ export default function WorkspacePage() {
                                         <Menu className="w-5 h-5" />
                                     </Button>
                                 </SheetTrigger>
-                                <SheetContent side="left" className="w-[300px] sm:w-[350px]">
+                                <SheetContent side="left" className="w-[320px] sm:w-[400px] p-6">
                                     <SheetHeader className="mb-6">
-                                        <SheetTitle className="flex items-center justify-between">
-                                            <span>History</span>
-                                            <Button variant="outline" size="sm" onClick={handleNewChat} className="h-8 gap-2">
-                                                <Plus className="w-4 h-4" /> New
-                                            </Button>
-                                        </SheetTitle>
+                                        <SheetTitle>History</SheetTitle>
                                     </SheetHeader>
-                                    <div className="flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-100px)]">
-                                        {history.map(item => (
-                                            <Button
-                                                key={item.id}
-                                                variant={conversationId === item.id ? "secondary" : "ghost"}
-                                                className="justify-start text-left h-auto py-3 px-4 truncate"
-                                                onClick={() => handleSelectConversation(item.id)}
-                                            >
-                                                <div className="flex flex-col gap-1 w-full overflow-hidden">
-                                                    <span className="truncate font-medium">{item.title || "Untitled Conversation"}</span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {new Date(item.updated_at).toLocaleDateString()}
-                                                    </span>
+
+                                    {/* New Chat Button */}
+                                    <Button variant="outline" size="sm" onClick={handleNewChat} className="w-full h-9 gap-2 mb-4">
+                                        <Plus className="w-4 h-4" /> New Conversation
+                                    </Button>
+
+                                    {/* Search Bar */}
+                                    <div className="relative mb-4">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Search conversations..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-9"
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-180px)] relative">
+                                        {history
+                                            .filter(item =>
+                                                item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                                searchQuery === ""
+                                            )
+                                            .map(item => (
+                                                <div
+                                                    key={item.id}
+                                                    className={`group flex items-center gap-2 rounded-lg transition-colors cursor-pointer ${conversationId === item.id
+                                                        ? 'bg-secondary'
+                                                        : 'hover:bg-muted'
+                                                        }`}
+                                                >
+                                                    <button
+                                                        className="flex-1 text-left py-3 px-3 overflow-hidden"
+                                                        onClick={() => handleSelectConversation(item.id)}
+                                                    >
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="truncate font-medium text-sm text-foreground flex items-center gap-1.5">
+                                                                {(item as any).is_favorite && <Star className="w-3 h-3 fill-amber-500 text-amber-500 shrink-0" />}
+                                                                {item.title || "Untitled Conversation"}
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {new Date(item.updated_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                    </button>
+
+                                                    {/* Dropdown Menu */}
+                                                    <div className="relative shrink-0 mr-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                setMenuPosition({ top: rect.bottom + 4, left: rect.left - 120 });
+                                                                setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                                            }}
+                                                        >
+                                                            <MoreHorizontal className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
-                                            </Button>
-                                        ))}
+                                            ))}
                                         {history.length === 0 && (
                                             <p className="text-sm text-muted-foreground text-center py-10">No history yet</p>
                                         )}
+                                        {history.length > 0 && history.filter(item =>
+                                            item.title?.toLowerCase().includes(searchQuery.toLowerCase())
+                                        ).length === 0 && (
+                                                <p className="text-sm text-muted-foreground text-center py-10">No matching conversations</p>
+                                            )}
                                     </div>
+
+                                    {/* Dropdown Menu Portal - rendered outside scroll area */}
+                                    {openMenuId && (
+                                        <>
+                                            <div className="fixed inset-0 z-[100]" onClick={() => setOpenMenuId(null)} />
+                                            <div
+                                                className="fixed z-[101] w-40 bg-popover border border-border rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100"
+                                                style={{ top: menuPosition.top, left: menuPosition.left }}
+                                            >
+                                                <button
+                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 text-foreground"
+                                                    onClick={(e) => handleToggleFavorite(openMenuId, e)}
+                                                >
+                                                    <Star className={`w-4 h-4 ${history.find(h => h.id === openMenuId && (h as any).is_favorite) ? 'fill-amber-500 text-amber-500' : 'text-amber-500'}`} />
+                                                    {history.find(h => h.id === openMenuId && (h as any).is_favorite) ? 'Unfavorite' : 'Favorite'}
+                                                </button>
+                                                <div className="h-px bg-border my-1" />
+                                                <button
+                                                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2"
+                                                    onClick={(e) => handleDeleteConversation(openMenuId, e)}
+                                                >
+                                                    <Trash2 className="w-4 h-4" /> Delete
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </SheetContent>
                             </Sheet>
 
@@ -276,10 +555,9 @@ export default function WorkspacePage() {
 
                         {/* CHAT SCROLL AREA */}
                         <ScrollArea className="flex-1 px-4 lg:px-8">
-                            <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-2rem)] py-6 pt-14">
+                            <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-140px)] py-6 pt-14">
 
                                 {messages.length === 0 ? (
-                                    // EMPTY STATE
                                     <div className="flex-1 flex flex-col items-center justify-center pb-20 opacity-90">
                                         <div className="mb-8 relative group cursor-default">
                                             <div className="absolute -inset-2 bg-gradient-to-tr from-primary/20 to-purple-500/20 rounded-3xl blur-lg opacity-40 group-hover:opacity-60 transition duration-500"></div>
@@ -293,16 +571,17 @@ export default function WorkspacePage() {
                                         </p>
                                     </div>
                                 ) : (
-                                    // MESSAGES
-                                    <div className="space-y-4 pb-32"> {/* Large bottom padding for floating input */}
+                                    <div className="space-y-4 pb-4">
                                         {messages.map((msg) => (
                                             <div key={msg.id}>
                                                 <MessageBubble
+                                                    id={msg.id}
                                                     role={msg.role}
                                                     content={msg.content}
-                                                    proposal={msg.proposal}
+                                                    timestamp={msg.timestamp}
                                                     attachment={msg.attachment}
-                                                    onApprove={handleApproveDraft}
+                                                    onEdit={handleEditPrompt}
+                                                    onAddToDraft={msg.role === 'assistant' ? handleAddToDraft : undefined}
                                                 />
                                                 {msg.proposal && (
                                                     <DraftBubble
@@ -313,28 +592,20 @@ export default function WorkspacePage() {
                                                 )}
                                             </div>
                                         ))}
-
-                                        {/* Loading Indicator */}
-                                        {isLoading && (
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse ml-4">
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                <span>Analyzing...</span>
-                                            </div>
-                                        )}
+                                        <div ref={scrollRef} />
                                     </div>
                                 )}
                             </div>
                         </ScrollArea>
 
-                        {/* --- FLOATING INPUT AREA --- */}
-                        <div className="absolute bottom-0 left-0 right-0 z-20">
-                            {/* GRADIENT FADE: This hides messages scrolling behind the input */}
-                            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
-
-                            {/* THE INPUT COMPONENT */}
-                            <div className="relative z-30 pb-4">
-                                <InputArea onSendMessage={handleSendMessage} disabled={isLoading} />
-                            </div>
+                        {/* FLOATING INPUT AREA */}
+                        <div className="relative z-30 pb-4">
+                            <div className="absolute bottom-full left-0 right-0 h-12 bg-gradient-to-t from-background/50 to-transparent pointer-events-none" />
+                            <InputArea
+                                onSendMessage={handleSendMessage}
+                                disabled={isLoading}
+                                initialValue={inputOverride}
+                            />
                         </div>
 
                     </div>
@@ -342,12 +613,52 @@ export default function WorkspacePage() {
 
                 <ResizableHandle withHandle className="bg-border/50 transition-colors hover:bg-primary/50 w-1" />
 
-                {/* --- RIGHT PANEL --- */}
+                {/* --- RIGHT PANEL (DOCUMENT) --- */}
                 <ResizablePanel defaultSize={40} minSize={25} maxSize={70} collapsible={true} collapsedSize={0}>
-                    <DocumentPanel sections={sections} />
+                    <DocumentPanel
+                        sections={sections}
+                        onDelete={handleDeleteSection}
+                        onRevise={handleReviseSection}
+                        onEdit={handleEditSection}
+                    />
                 </ResizablePanel>
 
             </ResizablePanelGroup>
+
+            {/* EDIT MODAL OVERLAY */}
+            {editingSection && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-lg bg-background border border-border rounded-xl shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center pb-2 border-b">
+                            <h3 className="font-semibold text-lg">Edit Section</h3>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setEditingSection(null)}>
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </div>
+                        <div className="space-y-4 py-2">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Title</label>
+                                <Input
+                                    value={editForm.title}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Content</label>
+                                <Textarea
+                                    className="min-h-[300px] font-mono text-sm leading-relaxed"
+                                    value={editForm.content}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, content: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <Button variant="ghost" onClick={() => setEditingSection(null)}>Cancel</Button>
+                            <Button onClick={saveSectionEdit}>Save Changes</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

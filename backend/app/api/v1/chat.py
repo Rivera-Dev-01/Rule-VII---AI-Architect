@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from app.core.security import verify_token
 from app.core.database import supabase
-from app.models.chat import ChatRequest, ChatResponse, ChatHistoryItem, Message,ProposalSaveRequest
+from app.models.chat import ChatRequest, ChatResponse, ChatHistoryItem, Message,ProposalSaveRequest,ProposalUpdateRequest
 from app.services.rag_engine import RAGEngine
 from app.services.llm_engine import LLMEngine
 
@@ -90,30 +90,129 @@ async def get_history(user_data: dict = Depends(verify_token)):
     """Get list of past conversations"""
     user_id = user_data.get('sub')
     
-    # Fetch all messages for user, ordered newest first
+    # Fetch all messages for user, ordered oldest first to get first user message
     response = supabase.table("messages")\
-        .select("conversation_id, content, created_at")\
+        .select("conversation_id, content, created_at, role")\
         .eq("user_id", user_id)\
-        .order("created_at", desc=True)\
+        .order("created_at", desc=False)\
         .execute()
-        
-    # Group by conversation_id to get unique conversations + latest snippets
+    
+    # Fetch user's favorite conversations
+    favorites_response = supabase.table("favorite_conversations")\
+        .select("conversation_id")\
+        .eq("user_id", user_id)\
+        .execute()
+    
+    favorite_ids = set(f['conversation_id'] for f in favorites_response.data) if favorites_response.data else set()
+    
+    # Group by conversation_id
+    # - Title = first USER message (like Claude AI)
+    # - Updated_at = latest message timestamp
     history_map = {}
+    latest_times = {}
+    
     for msg in response.data:
         cid = msg.get('conversation_id')
         if not cid: continue
         
-        # Since we ordered internally by date desc, the first time we see a CID, it's the latest message
-        if cid not in history_map:
+        # Track the latest timestamp for each conversation
+        msg_time = msg['created_at']
+        if cid not in latest_times or msg_time > latest_times[cid]:
+            latest_times[cid] = msg_time
+        
+        # Only set title from the FIRST user message
+        if cid not in history_map and msg.get('role') == 'user':
+            content = msg['content']
             history_map[cid] = {
                 "id": cid,
-                "title": msg['content'][:60] + ("..." if len(msg['content']) > 60 else ""),
-                "updated_at": msg['created_at']
+                "title": content[:60] + ("..." if len(content) > 60 else ""),
+                "updated_at": msg_time,  # Will be updated below
+                "is_favorite": cid in favorite_ids
             }
     
-    return list(history_map.values())
+    # Update with latest timestamps
+    for cid in history_map:
+        history_map[cid]["updated_at"] = latest_times.get(cid, history_map[cid]["updated_at"])
+    
+    # Sort: favorites first, then by updated_at descending
+    sorted_history = sorted(
+        history_map.values(), 
+        key=lambda x: (not x.get("is_favorite", False), x["updated_at"]),
+        reverse=True
+    )
+    # Fix sort: favorites first (is_favorite=True should come first)
+    sorted_history = sorted(
+        history_map.values(), 
+        key=lambda x: (-(1 if x.get("is_favorite") else 0), x["updated_at"]),
+        reverse=True
+    )
+    
+    return sorted_history
 
 
+@router.post("/favorite/{conversation_id}")
+async def toggle_favorite(conversation_id: str, user_data: dict = Depends(verify_token)):
+    """Toggle favorite status of a conversation"""
+    user_id = user_data.get('sub')
+    
+    try:
+        # Check if already favorited
+        existing = supabase.table("favorite_conversations")\
+            .select("id")\
+            .eq("user_id", user_id)\
+            .eq("conversation_id", conversation_id)\
+            .execute()
+        
+        if existing.data and len(existing.data) > 0:
+            # Remove favorite
+            supabase.table("favorite_conversations")\
+                .delete()\
+                .eq("user_id", user_id)\
+                .eq("conversation_id", conversation_id)\
+                .execute()
+            return {"is_favorite": False}
+        else:
+            # Add favorite
+            supabase.table("favorite_conversations")\
+                .insert({
+                    "user_id": user_id,
+                    "conversation_id": conversation_id
+                })\
+                .execute()
+            return {"is_favorite": True}
+    except Exception as e:
+        print(f"ERROR TOGGLING FAVORITE: {e}")
+        raise HTTPException(status_code=500, detail="Failed to toggle favorite")
+
+
+# IMPORTANT: Static routes must come BEFORE dynamic routes
+@router.delete("/conversation/{conversation_id}")
+async def delete_conversation(conversation_id: str, user_data: dict = Depends(verify_token)):
+    """Delete a conversation and all its messages and proposals"""
+    user_id = user_data.get('sub')
+    
+    try:
+        # Delete all messages for this conversation
+        supabase.table("messages")\
+            .delete()\
+            .eq("conversation_id", conversation_id)\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        # Delete all saved proposals for this conversation
+        supabase.table("saved_proposals")\
+            .delete()\
+            .eq("conversation_id", conversation_id)\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        return {"success": True}
+    except Exception as e:
+        print(f"ERROR DELETING CONVERSATION: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete conversation")
+
+
+# Dynamic route - must come AFTER static routes
 @router.get("/{conversation_id}", response_model=List[Message])
 async def get_conversation(conversation_id: str, user_data: dict = Depends(verify_token)):
     """Get messages for a specific conversation"""
@@ -127,6 +226,7 @@ async def get_conversation(conversation_id: str, user_data: dict = Depends(verif
         .execute()
     
     return response.data or []
+
 
 @router.post("/proposal")
 async def save_proposal(request: ProposalSaveRequest, user_data: dict = Depends(verify_token)):
@@ -165,3 +265,50 @@ async def get_saved_proposals(conversation_id: str, user_data: dict = Depends(ve
         .execute()
         
     return response.data or []
+
+@router.delete("/proposal/{id}")
+async def delete_proposal(id: str, user_data: dict = Depends(verify_token)):
+    user_id = user_data.get('sub')
+    
+    try:
+        result = supabase.table("saved_proposals")\
+            .delete()\
+            .eq("id", id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        return {"success": True}
+    except Exception as e:
+        print(f"ERROR DELETING PROPOSAL: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete proposal")
+
+@router.put("/proposal/{id}")
+async def update_proposal(id: str, request: ProposalUpdateRequest, user_data: dict = Depends(verify_token)):
+
+    user_id = user_data.get('sub')
+
+    try:
+        data = {
+            "title": request.title,
+            "summary": request.summary,
+            "content": request.content,
+            "updated_at": "now()"
+        }
+
+        result = supabase.table("saved_proposals")\
+            .update(data)\
+            .eq("id", id)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+
+        return result.data[0]
+
+    except Exception as e:
+        print(f"ERROR UPDATING PROPOSAL: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update proposal")

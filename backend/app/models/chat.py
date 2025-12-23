@@ -24,6 +24,7 @@ class ChatHistoryItem(BaseModel):
     id: str
     title: str
     updated_at: datetime
+    is_favorite: Optional[bool] = False
 
 class Message(BaseModel):
     id: Optional[str] = None
@@ -36,6 +37,11 @@ class Message(BaseModel):
 
 class ProposalSaveRequest(BaseModel):
     conversation_id: str
+    title: str
+    summary: Optional[str] = None
+    content: Optional[str] = None
+
+class ProposalUpdateRequest(BaseModel):
     title: str
     summary: Optional[str] = None
     content: Optional[str] = None

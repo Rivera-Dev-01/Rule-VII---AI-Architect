@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 interface InputAreaProps {
   onSendMessage: (content: string, file: File | null) => void;
   disabled?: boolean;
+  initialValue?: string;
 }
 
-export default function InputArea({ onSendMessage, disabled }: InputAreaProps) {
-  const [input, setInput] = useState("");
+export default function InputArea({ onSendMessage, disabled, initialValue }: InputAreaProps) {
+  const [input, setInput] = useState(initialValue || "");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -27,6 +28,17 @@ export default function InputArea({ onSendMessage, disabled }: InputAreaProps) {
   useEffect(() => {
     adjustHeight();
   }, [input]);
+
+  // Sync initialValue when it changes (e.g. from Edit/Revise actions)
+  useEffect(() => {
+    if (initialValue) {
+      setInput(initialValue);
+      if (textareaRef.current) {
+        // Slight delay to ensure render
+        setTimeout(adjustHeight, 0);
+      }
+    }
+  }, [initialValue]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -56,7 +68,7 @@ export default function InputArea({ onSendMessage, disabled }: InputAreaProps) {
     onSendMessage(input, selectedFile);
     setInput("");
     removeFile();
-    if (textareaRef.current) textareaRef.current.style.height = "auto"; 
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -67,26 +79,26 @@ export default function InputArea({ onSendMessage, disabled }: InputAreaProps) {
   };
 
   return (
-    <div className="w-full px-4 pb-6"> 
+    <div className="w-full px-4 pb-6">
       <div className="max-w-3xl mx-auto flex flex-col gap-2">
-        
+
         {/* FILE PREVIEW CHIP */}
         {selectedFile && (
           <div className="flex items-center gap-2 bg-background/80 backdrop-blur-md w-fit px-3 py-2 rounded-xl border border-border/50 shadow-sm animate-in fade-in slide-in-from-bottom-2">
             <div className="p-1.5 bg-muted rounded-md">
               {selectedFile.type.startsWith('image') ? (
-                 <ImageIcon className="w-4 h-4 text-blue-500" />
+                <ImageIcon className="w-4 h-4 text-blue-500" />
               ) : (
-                 <FileText className="w-4 h-4 text-orange-500" />
+                <FileText className="w-4 h-4 text-orange-500" />
               )}
             </div>
             <div className="flex flex-col">
-                <span className="text-xs font-medium text-foreground max-w-[200px] truncate">
+              <span className="text-xs font-medium text-foreground max-w-[200px] truncate">
                 {selectedFile.name}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                    {(selectedFile.size / 1024).toFixed(1)} KB
-                </span>
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {(selectedFile.size / 1024).toFixed(1)} KB
+              </span>
             </div>
             <button
               onClick={removeFile}
@@ -109,15 +121,15 @@ export default function InputArea({ onSendMessage, disabled }: InputAreaProps) {
             
             focus-within:ring-2 focus-within:ring-primary/20
         `}>
-          
+
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileSelect}
-            className="hidden" 
-            accept=".pdf,.png,.jpg,.jpeg,.dwg" 
+            className="hidden"
+            accept=".pdf,.png,.jpg,.jpeg,.dwg"
           />
-          
+
           <Button
             type="button"
             variant="ghost"
@@ -142,21 +154,20 @@ export default function InputArea({ onSendMessage, disabled }: InputAreaProps) {
 
           <Button
             size="icon"
-            className={`h-10 w-10 rounded-full shrink-0 transition-all duration-200 mb-0.5 ${
-                input.trim() || selectedFile 
-                ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm" 
-                : "bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600 cursor-not-allowed"
-            }`}
+            className={`h-10 w-10 rounded-full shrink-0 transition-all duration-200 mb-0.5 ${input.trim() || selectedFile
+              ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+              : "bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600 cursor-not-allowed"
+              }`}
             onClick={handleSend}
             disabled={(!input.trim() && !selectedFile) || disabled}
           >
             <Send className="w-4 h-4" />
           </Button>
         </div>
-        
+
         {/* Footer Text */}
         <div className="text-center text-[10px] text-muted-foreground/40 font-medium select-none">
-           AI Architect can make mistakes. Verify with NBCP (PD 1096).
+          AI Architect can make mistakes. Verify with NBCP (PD 1096).
         </div>
       </div>
     </div>
