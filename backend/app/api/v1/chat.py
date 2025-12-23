@@ -29,6 +29,16 @@ async def chat(request: ChatRequest, user_data: dict = Depends(verify_token)):
     if not conversation_id:
         conversation_id = str(uuid.uuid4())
         print(f"🆕 NEW CONVERSATION ID: {conversation_id}")
+        
+        # Create SESSION entry first to satisfy Foreign Key constraint
+        try:
+            supabase.table("sessions").insert({
+                "id": conversation_id,
+                "user_id": user_id
+            }).execute()
+        except Exception as e:
+            print(f"ERROR CREATING SESSION: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to create conversation session: {str(e)}")
 
     # 1. Save user message to database
     user_payload = {
