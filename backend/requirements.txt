@@ -4,14 +4,15 @@ python-multipart
 python-dotenv==1.0.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
-supabase==2.3.4
+supabase>=2.9.0
 groq==0.4.1
 llama-index-core
 llama-index-llms-groq
 llama-index-embeddings-huggingface
 huggingface-hub==0.24.0
 sentence-transformers==2.3.1
-httpx>=0.24.0,<0.26.0
+# Let supabase determine the best httpx version
+# httpx>=0.24.0,<0.26.0
 requests==2.31.0
 python-jose==3.3.0
 cryptography
