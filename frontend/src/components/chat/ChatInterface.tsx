@@ -1,30 +1,62 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { apiClient } from "@/lib/api-client"; // <--- The new client doing the heavy lifting
+import { apiClient } from "@/lib/api-client";
 import { ChatResponse } from "@/lib/api-types";
 import MessageBubble from "./MessageBubble";
 import InputArea from "./InputArea";
 import { WorkspaceMessage, DraftProposal } from "@/types/workspace";
-import { Scale, Loader2 } from "lucide-react";
+import { Scale, Loader2, FileCheck } from "lucide-react";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+  const [savedProposals, setSavedProposals] = useState<any[]>([]); // State for approved projects
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
+  // 1. Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // 2. Fetch Saved Proposals when Conversation ID changes
+  useEffect(() => {
+    const fetchSavedProposals = async () => {
+      if (!conversationId) return;
+
+      try {
+        // Using standard fetch since apiClient might not have this method yet
+        // Adjust the token retrieval based on where you store it (localStorage/cookies)
+        const token = localStorage.getItem("access_token") || "";
+
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/chat/proposals/${conversationId}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setSavedProposals(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch saved proposals:", error);
+      }
+    };
+
+    fetchSavedProposals();
+  }, [conversationId]);
+
+  // 3. Handle Sending Messages
   const handleSendMessage = async (content: string, file: File | null) => {
     if (!content && !file) return;
 
-    // 1. Optimistic UI: Add user message immediately
+    // Optimistic UI
     const userMsg: WorkspaceMessage = {
       id: Date.now().toString(),
       role: "user",
@@ -34,7 +66,7 @@ export default function ChatInterface() {
         name: file.name,
         type: file.type,
         size: file.size,
-        url: URL.createObjectURL(file) // Local preview
+        url: URL.createObjectURL(file)
       } : undefined
     };
 
@@ -44,30 +76,25 @@ export default function ChatInterface() {
     try {
       let data: ChatResponse;
 
-      // 2. Route the request: Chat vs. Analysis
       if (file) {
-        // CASE A: File Upload (Analysis)
-        // logic: The apiClient handles the FormData construction
         data = await apiClient.analyze.upload(file, content);
       } else {
-        // CASE B: Standard Text Chat
-        // logic: Pass the conversation_id to maintain context
         data = await apiClient.chat.send({
           message: content,
           conversation_id: conversationId,
         });
       }
 
-      // 3. Update Conversation ID (if backend created a new session)
+      // Update Conversation ID
       if (data.conversation_id) {
         setConversationId(data.conversation_id);
       }
 
-      // 4. Create AI Message from Response
+      // Create AI Message
       const aiMsg: WorkspaceMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.response, // The text response from AI
+        content: data.response,
         timestamp: new Date(),
         proposal: data.proposal ? {
           id: `prop-${Date.now()}`,
@@ -82,10 +109,9 @@ export default function ChatInterface() {
 
     } catch (error: any) {
       console.error("Chat Error:", error);
-
       const errorMsg: WorkspaceMessage = {
         id: (Date.now() + 2).toString(),
-        role: "system", // Special styling for errors
+        role: "system",
         content: "⚠️ " + (error.response?.data?.detail || "Connection failed. Please check your login status."),
         timestamp: new Date(),
       };
@@ -95,9 +121,44 @@ export default function ChatInterface() {
     }
   };
 
-  const handleApproveProposal = (proposal: DraftProposal) => {
-    // You can connect this to your Project state later
-    console.log("Proposal Approved:", proposal);
+  // 4. Handle Approving/Saving a Proposal
+  const handleApproveProposal = async (proposal: DraftProposal) => {
+    if (!conversationId) {
+      console.error("No conversation ID present");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("access_token") || "";
+
+      // Match the "ProposalSaveRequest" schema from your backend
+      const payload = {
+        conversation_id: conversationId,
+        title: proposal.title,
+        summary: proposal.summary,
+        content: proposal.proposedContent || proposal.reasoning // Fallback
+      };
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/chat/proposal`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error("Failed to save proposal");
+
+      const savedData = await res.json();
+
+      // Update local state to show it immediately
+      setSavedProposals(prev => [savedData, ...prev]);
+      console.log("Proposal Saved:", savedData);
+
+    } catch (error) {
+      console.error("Error saving proposal:", error);
+    }
   };
 
   return (
@@ -107,8 +168,34 @@ export default function ChatInterface() {
       <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 custom-scrollbar">
         <div className="max-w-3xl mx-auto space-y-6">
 
+          {/* NEW: Saved Proposals Section (Display if any exist) */}
+          {savedProposals.length > 0 && (
+            <div className="w-full mb-6 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <FileCheck className="w-4 h-4 text-emerald-500" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Approved Drafts</span>
+              </div>
+              <ScrollArea className="w-full whitespace-nowrap rounded-xl border bg-muted/30 p-2">
+                <div className="flex w-max space-x-3 p-1">
+                  {savedProposals.map((p: any) => (
+                    <div key={p.id} className="flex flex-col gap-1 w-[200px] p-3 rounded-lg bg-background border shadow-sm hover:border-primary/50 transition-colors cursor-default">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="font-semibold text-xs truncate">{p.title}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground truncate pl-3.5">
+                        {p.summary || "No summary"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
+          )}
+
           {/* Empty State */}
-          {messages.length === 0 && (
+          {messages.length === 0 && savedProposals.length === 0 && (
             <div className="flex flex-col items-center justify-center h-[50vh] opacity-80 mt-10 animate-in fade-in zoom-in duration-500">
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                 <Scale className="w-8 h-8 text-primary" />

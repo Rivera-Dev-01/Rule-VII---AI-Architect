@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Depends
 from app.core.security import verify_token
 from app.core.database import supabase
-from app.models.chat import ChatRequest, ChatResponse, ChatHistoryItem, Message
+from app.models.chat import ChatRequest, ChatResponse, ChatHistoryItem, Message,ProposalSaveRequest
 from app.services.rag_engine import RAGEngine
 from app.services.llm_engine import LLMEngine
 
@@ -126,4 +126,42 @@ async def get_conversation(conversation_id: str, user_data: dict = Depends(verif
         .order("created_at", desc=False)\
         .execute()
     
+    return response.data or []
+
+@router.post("/proposal")
+async def save_proposal(request: ProposalSaveRequest, user_data: dict = Depends(verify_token)):
+    user_id = user_data.get('sub')
+    
+    try:
+        data = {
+            "user_id": user_id,
+            "conversation_id": request.conversation_id,
+            "title": request.title,
+            "summary": request.summary,
+            "content": request.content
+        }
+        
+        # ✅ FIXED: Removed curly braces
+        response = (
+            supabase.table("saved_proposals")
+            .insert(data)
+            .execute()
+        )
+        
+        return response.data[0]
+    except Exception as e:
+        print(f"ERROR SAVING PROPOSAL: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save proposal")
+
+@router.get("/proposals/{conversation_id}")
+async def get_saved_proposals(conversation_id: str, user_data: dict = Depends(verify_token)):
+    user_id = user_data.get('sub')
+    
+    response = supabase.table("saved_proposals")\
+        .select("*")\
+        .eq("conversation_id", conversation_id)\
+        .eq("user_id", user_id)\
+        .order("created_at", desc=True)\
+        .execute()
+        
     return response.data or []

@@ -33,3 +33,9 @@ class Message(BaseModel):
     created_at: datetime
     proposal: Optional[Dict[str, Any]] = None
     attachment: Optional[Any] = None
+
+class ProposalSaveRequest(BaseModel):
+    conversation_id: str
+    title: str
+    summary: Optional[str] = None
+    content: Optional[str] = None

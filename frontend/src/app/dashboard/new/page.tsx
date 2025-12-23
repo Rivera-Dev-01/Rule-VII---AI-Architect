@@ -71,6 +71,26 @@ export default function WorkspacePage() {
             })));
         } catch (e) {
             console.error(e);
+        }
+
+        // Fetch Saved Proposals for this conversation
+        try {
+            // @ts-ignore
+            const savedProps = await apiClient.chat.getSavedProposals(id);
+
+            // Convert to DocumentSection format
+            const savedSections: DocumentSection[] = savedProps.map((p: any) => ({
+                id: p.id || `saved-${Date.now()}`,
+                title: p.title,
+                content: p.content,
+                status: 'approved',
+                lastUpdated: new Date(p.created_at || Date.now())
+            }));
+
+            setSections(savedSections);
+        } catch (err) {
+            console.error("Failed to fetch proposals", err);
+            setSections([]);
         } finally {
             setIsLoading(false);
         }
@@ -154,20 +174,42 @@ export default function WorkspacePage() {
     };
 
     // ... (Keep handleApproveDraft and handleRejectDraft) ...
-    const handleApproveDraft = (proposal: DraftProposal) => {
+    const handleApproveDraft = async (proposal: DraftProposal) => {
+        if (!conversationId) {
+            alert("No active conversation found to save this proposal to.");
+            return;
+        }
+
+        // 1. Optimistic Update
+        const newSection: DocumentSection = {
+            id: proposal.id,
+            title: proposal.title,
+            content: proposal.proposedContent,
+            status: "approved",
+            lastUpdated: new Date()
+        };
+
         setSections(prev => {
-            if (prev.some(s => s.id === proposal.id)) {
-                // Prevent duplicate sections
-                return prev;
-            }
-            return [...prev, {
-                id: proposal.id,
-                title: proposal.title,
-                content: proposal.proposedContent,
-                status: "approved",
-                lastUpdated: new Date()
-            }];
+            if (prev.some(s => s.id === proposal.id)) return prev;
+            return [newSection, ...prev]; // Add to top
         });
+
+        // 2. Persist to Backend
+        try {
+            const payload = {
+                conversation_id: conversationId,
+                title: proposal.title,
+                summary: proposal.summary,
+                content: proposal.proposedContent || proposal.reasoning || ""
+            };
+
+            // @ts-ignore
+            await apiClient.chat.saveProposal(payload);
+
+        } catch (error) {
+            console.error("Error saving proposal:", error);
+            // Optional: Show toaster or revert state
+        }
     };
 
     const handleRejectDraft = (id: string) => { console.log(id) };
