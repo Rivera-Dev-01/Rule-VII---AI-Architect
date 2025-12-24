@@ -5,15 +5,17 @@ import { Send, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+const MAX_FILES = 5;
+
 interface InputAreaProps {
-  onSendMessage: (content: string, file: File | null) => void;
+  onSendMessage: (content: string, files: File[]) => void;
   disabled?: boolean;
   initialValue?: string;
 }
 
 export default function InputArea({ onSendMessage, disabled, initialValue }: InputAreaProps) {
   const [input, setInput] = useState(initialValue || "");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -41,8 +43,13 @@ export default function InputArea({ onSendMessage, disabled, initialValue }: Inp
   }, [initialValue]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setSelectedFiles(prev => {
+        const combined = [...prev, ...newFiles];
+        return combined.slice(0, MAX_FILES); // Limit to 5 files
+      });
+      e.target.value = ''; // Reset for re-selection
     }
   };
 
@@ -52,22 +59,28 @@ export default function InputArea({ onSendMessage, disabled, initialValue }: Inp
       if (items[i].type.indexOf("image") !== -1) {
         e.preventDefault();
         const file = items[i].getAsFile();
-        if (file) setSelectedFile(file);
+        if (file && selectedFiles.length < MAX_FILES) {
+          setSelectedFiles(prev => [...prev, file]);
+        }
         return;
       }
     }
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearFiles = () => {
+    setSelectedFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSend = () => {
-    if ((!input.trim() && !selectedFile) || disabled) return;
-    onSendMessage(input, selectedFile);
+    if ((!input.trim() && selectedFiles.length === 0) || disabled) return;
+    onSendMessage(input, selectedFiles);
     setInput("");
-    removeFile();
+    clearFiles();
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
@@ -82,30 +95,33 @@ export default function InputArea({ onSendMessage, disabled, initialValue }: Inp
     <div className="w-full px-4 pb-6">
       <div className="max-w-3xl mx-auto flex flex-col gap-2">
 
-        {/* FILE PREVIEW CHIP */}
-        {selectedFile && (
-          <div className="flex items-center gap-2 bg-background/80 backdrop-blur-md w-fit px-3 py-2 rounded-xl border border-border/50 shadow-sm animate-in fade-in slide-in-from-bottom-2">
-            <div className="p-1.5 bg-muted rounded-md">
-              {selectedFile.type.startsWith('image') ? (
-                <ImageIcon className="w-4 h-4 text-blue-500" />
-              ) : (
-                <FileText className="w-4 h-4 text-orange-500" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-medium text-foreground max-w-[200px] truncate">
-                {selectedFile.name}
-              </span>
+        {/* FILE PREVIEW PILLS - Inline horizontal */}
+        {selectedFiles.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedFiles.map((file, index) => (
+              <div
+                key={index}
+                className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 bg-muted/80 rounded-full text-xs border border-border/50 animate-in fade-in slide-in-from-bottom-2"
+              >
+                {file.type.startsWith('image') ? (
+                  <ImageIcon className="w-3 h-3 text-blue-500 shrink-0" />
+                ) : (
+                  <FileText className="w-3 h-3 text-orange-500 shrink-0" />
+                )}
+                <span className="max-w-[100px] truncate font-medium">{file.name}</span>
+                <button
+                  onClick={() => removeFile(index)}
+                  className="hover:bg-destructive/20 hover:text-destructive rounded-full p-0.5 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {selectedFiles.length < MAX_FILES && (
               <span className="text-[10px] text-muted-foreground">
-                {(selectedFile.size / 1024).toFixed(1)} KB
+                {MAX_FILES - selectedFiles.length} more allowed
               </span>
-            </div>
-            <button
-              onClick={removeFile}
-              className="ml-2 hover:bg-destructive/10 hover:text-destructive rounded-full p-1 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            )}
           </div>
         )}
 
@@ -128,6 +144,7 @@ export default function InputArea({ onSendMessage, disabled, initialValue }: Inp
             onChange={handleFileSelect}
             className="hidden"
             accept=".pdf,.png,.jpg,.jpeg,.dwg"
+            multiple
           />
 
           <Button
@@ -154,12 +171,12 @@ export default function InputArea({ onSendMessage, disabled, initialValue }: Inp
 
           <Button
             size="icon"
-            className={`h-10 w-10 rounded-full shrink-0 transition-all duration-200 mb-0.5 ${input.trim() || selectedFile
+            className={`h-10 w-10 rounded-full shrink-0 transition-all duration-200 mb-0.5 ${input.trim() || selectedFiles.length > 0
               ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
               : "bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600 cursor-not-allowed"
               }`}
             onClick={handleSend}
-            disabled={(!input.trim() && !selectedFile) || disabled}
+            disabled={(!input.trim() && selectedFiles.length === 0) || disabled}
           >
             <Send className="w-4 h-4" />
           </Button>

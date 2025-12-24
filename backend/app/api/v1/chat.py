@@ -32,10 +32,15 @@ async def chat(request: ChatRequest, user_data: dict = Depends(verify_token)):
         
         # Create SESSION entry first to satisfy Foreign Key constraint
         try:
-            supabase.table("sessions").insert({
+            session_data = {
                 "id": conversation_id,
                 "user_id": user_id
-            }).execute()
+            }
+            # Link session to project if provided
+            if request.project_id:
+                session_data["project_id"] = request.project_id
+                
+            supabase.table("sessions").insert(session_data).execute()
         except Exception as e:
             print(f"ERROR CREATING SESSION: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to create conversation session: {str(e)}")
@@ -59,8 +64,43 @@ async def chat(request: ChatRequest, user_data: dict = Depends(verify_token)):
     # 2. Get RAG context (mock for now)
     sources = await rag_engine.retrieve(request.message, user_id)
 
-    # 3. Generate AI response
-    ai_result = await llm_engine.generate(request.message, sources)
+    # 2.5 Get project context if project_id provided
+    project_context = ""
+    if request.project_id:
+        try:
+            # Fetch project info
+            project = supabase.table("projects")\
+                .select("*")\
+                .eq("id", request.project_id)\
+                .eq("user_id", user_id)\
+                .execute()
+            
+            if project.data:
+                p = project.data[0]
+                project_context = f"""
+PROJECT CONTEXT:
+Name: {p.get('name', 'Unknown')}
+Location: {p.get('location', 'Not specified')}
+Description: {p.get('description', 'No description')}
+"""
+            
+            # Fetch uploaded files
+            files = supabase.table("project_files")\
+                .select("filename, file_type")\
+                .eq("project_id", request.project_id)\
+                .execute()
+            
+            if files.data:
+                project_context += "\nUPLOADED FILES:\n"
+                for f in files.data:
+                    project_context += f"- {f['filename']} ({f['file_type']})\n"
+            
+            print(f"📁 PROJECT CONTEXT: {project_context}")
+        except Exception as e:
+            print(f"ERROR FETCHING PROJECT CONTEXT: {e}")
+
+    # 3. Generate AI response (with project context)
+    ai_result = await llm_engine.generate(request.message, sources, project_context)
 
     # 4. Save AI response to database
     ai_payload = {
@@ -83,6 +123,31 @@ async def chat(request: ChatRequest, user_data: dict = Depends(verify_token)):
         conversation_id=conversation_id,  # Return the generated conversation_id
         proposal=ai_result.get("proposal")
     )
+
+
+@router.get("/project/{project_id}/session")
+async def get_project_session(project_id: str, user_data: dict = Depends(verify_token)):
+    """
+    Get existing conversation for a project.
+    Returns conversation_id if exists, null if not.
+    """
+    user_id = user_data.get('sub')
+    
+    try:
+        result = supabase.table("sessions")\
+            .select("id")\
+            .eq("project_id", project_id)\
+            .eq("user_id", user_id)\
+            .order("created_at", desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if result.data and len(result.data) > 0:
+            return {"conversation_id": result.data[0]["id"]}
+        return {"conversation_id": None}
+    except Exception as e:
+        print(f"ERROR FETCHING PROJECT SESSION: {e}")
+        return {"conversation_id": None}
 
 
 @router.get("/history", response_model=List[ChatHistoryItem])

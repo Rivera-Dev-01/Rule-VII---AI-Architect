@@ -11,6 +11,7 @@ class AttachmentMetadata(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
+    project_id: Optional[str] = None  # For project context injection
     attachments: Optional[List[AttachmentMetadata]] = None
 
 class ChatResponse(BaseModel):

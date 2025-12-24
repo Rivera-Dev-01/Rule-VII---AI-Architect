@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from app.core.security import verify_token
 from app.core.database import supabase
-from app.models.project import ProjectCreate, ProjectDB
+from app.models.project import ProjectCreate, ProjectUpdate, ProjectDB
 
 router = APIRouter()
 
@@ -80,7 +80,7 @@ async def delete_project(project_id: str, user: dict = Depends(verify_token)):
 # 4. UPDATE PROJECT
 # ==========================================
 @router.put("/{project_id}", response_model=ProjectDB)
-async def update_project(project_id: str, project_update: ProjectCreate, user: dict = Depends(verify_token)):
+async def update_project(project_id: str, project_update: ProjectUpdate, user: dict = Depends(verify_token)):
     user_id = user.get('sub')
 
     # Only update the fields the user explicitly sent

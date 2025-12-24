@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Bell, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface UserProfile {
@@ -16,20 +16,12 @@ export default function Header() {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Initialize Supabase Client
-    const [supabase] = useState(() => 
-        createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
-    );
-  
     useEffect(() => {
         const fetchUser = async () => {
             try {
                 // 1. GET THE REAL TOKEN FROM SUPABASE
                 const { data: { session } } = await supabase.auth.getSession();
-                
+
                 if (!session?.access_token) {
                     console.error("No active session found. User might be logged out.");
                     setLoading(false);
@@ -37,7 +29,6 @@ export default function Header() {
                 }
 
                 const token = session.access_token;
-                console.log("Token found:", token.substring(0, 10) + "..."); // Debug log
 
                 // 2. USE THE TOKEN TO CALL BACKEND
                 const response = await fetch("http://127.0.0.1:8000/api/v1/users/me", {
@@ -63,7 +54,7 @@ export default function Header() {
         };
 
         fetchUser();
-    }, [supabase]); // Add supabase to dependency array
+    }, []); // supabase is now module-level constant
 
     // Helper to get initials
     const getInitials = (name: string) => {
@@ -74,7 +65,7 @@ export default function Header() {
         <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 flex items-center justify-between sticky top-0 z-50">
             {/* Left: Branding */}
             <div className="flex items-center gap-3">
-                 <div className="bg-primary text-primary-foreground p-1.5 rounded-md md:hidden">
+                <div className="bg-primary text-primary-foreground p-1.5 rounded-md md:hidden">
                     <Scale size={18} strokeWidth={3} />
                 </div>
                 <span className="font-semibold text-lg md:hidden">Rule VII</span>
@@ -88,7 +79,7 @@ export default function Header() {
                 <Button variant="ghost" size="icon" className="text-muted-foreground">
                     <Bell size={20} />
                 </Button>
-                
+
                 <div className="h-6 w-px bg-border mx-1"></div>
 
                 <div className="flex items-center gap-3">
@@ -110,8 +101,7 @@ export default function Header() {
                         )}
                     </div>
                     <Avatar className="h-9 w-9 border border-border">
-                        <AvatarImage src={user?.avatar_url || "/placeholder-avatar.jpg"} />
-                        <AvatarFallback className="bg-secondary">
+                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
                             {user ? getInitials(user.username) : "..."}
                         </AvatarFallback>
                     </Avatar>

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Scale, ArrowLeft, X, Menu, Plus, Loader2, Trash2, MoreHorizontal, Star, Search } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Scale, ArrowLeft, X, Menu, Plus, Loader2, Trash2, MoreHorizontal, Star, Search, FolderOpen, MapPin, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
     ResizableHandle,
     ResizablePanel,
@@ -17,6 +17,7 @@ import {
 // API Client
 import { apiClient } from "@/lib/api-client";
 import { ChatResponse, ChatHistoryItem } from "@/lib/api-types";
+import { supabase } from "@/lib/supabase";
 
 // Import components
 import DocumentPanel from "@/components/workspace/DocumentPanel";
@@ -29,6 +30,7 @@ import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/worksp
 
 export default function WorkspacePage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Core State
@@ -36,6 +38,16 @@ export default function WorkspacePage() {
     const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
     const [conversationId, setConversationId] = useState<string | undefined>(undefined);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Project Context State
+    const [projectContext, setProjectContext] = useState<{
+        id: string;
+        name: string;
+        location?: string;
+        description?: string;
+        fileCount: number;
+    } | null>(null);
+    const [isLoadingProject, setIsLoadingProject] = useState(false);
 
     // History State
     const [history, setHistory] = useState<ChatHistoryItem[]>([]);
@@ -57,10 +69,67 @@ export default function WorkspacePage() {
         }
     }, [messages]);
 
+    // Load project context if project param exists
+    useEffect(() => {
+        const projectId = searchParams.get('project');
+        if (projectId) {
+            loadProjectContext(projectId);
+        }
+    }, [searchParams]);
+
     // Load history on mount
     useEffect(() => {
         loadHistory();
     }, []);
+
+    const loadProjectContext = async (projectId: string) => {
+        setIsLoadingProject(true);
+        try {
+            // 1. Check for existing session for this project
+            const sessionRes = await fetch(`http://localhost:8000/api/v1/chat/project/${projectId}/session`, {
+                headers: { "Authorization": `Bearer ${await getToken()}` }
+            });
+            const sessionData = await sessionRes.json();
+
+            if (sessionData.conversation_id) {
+                // Load existing conversation
+                await handleSelectConversation(sessionData.conversation_id);
+            }
+
+            // 2. Fetch project details
+            const projectRes = await fetch(`http://localhost:8000/api/v1/projects/`, {
+                headers: { "Authorization": `Bearer ${await getToken()}` }
+            });
+            const projects = await projectRes.json();
+            const project = projects.find((p: any) => p.id === projectId);
+
+            if (project) {
+                // 3. Fetch file count
+                const filesRes = await fetch(`http://localhost:8000/api/v1/projects/${projectId}/files`, {
+                    headers: { "Authorization": `Bearer ${await getToken()}` }
+                });
+                const files = await filesRes.json();
+
+                setProjectContext({
+                    id: projectId,
+                    name: project.name,
+                    location: project.location,
+                    description: project.description,
+                    fileCount: files.length || 0
+                });
+            }
+        } catch (error) {
+            console.error("Error loading project context:", error);
+        } finally {
+            setIsLoadingProject(false);
+        }
+    };
+
+    // Helper to get auth token using shared supabase client
+    const getToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.access_token || '';
+    };
 
     const loadHistory = async () => {
         try {
@@ -269,21 +338,21 @@ export default function WorkspacePage() {
     };
 
     // --- MAIN SEND MESSAGE WITH BACKEND ---
-    const handleSendMessage = async (content: string, file: File | null) => {
+    const handleSendMessage = async (content: string, files: File[]) => {
         setInputOverride(""); // Clear override
-        if (!content && !file) return;
+        if (!content && files.length === 0) return;
 
         // 1. Optimistic UI: Add user message immediately
         const userMsg: WorkspaceMessage = {
             id: Date.now().toString(),
             role: "user",
-            content: content || (file ? `Uploaded: ${file.name}` : ""),
+            content: content || (files.length > 0 ? `Uploaded: ${files.map(f => f.name).join(', ')}` : ""),
             timestamp: new Date(),
-            attachment: file ? {
-                name: file.name,
-                type: file.type,
-                size: file.size,
-                url: URL.createObjectURL(file)
+            attachment: files.length > 0 ? {
+                name: files[0].name,  // Show first file in attachment
+                type: files[0].type,
+                size: files[0].size,
+                url: URL.createObjectURL(files[0])
             } : undefined
         };
         setMessages(prev => [...prev, userMsg]);
@@ -292,16 +361,18 @@ export default function WorkspacePage() {
         try {
             let data: ChatResponse;
 
-            if (file) {
-                data = await apiClient.analyze.upload(file, content);
+            if (files.length > 0) {
+                // For now, upload only the first file (analyze endpoint supports 1 file)
+                data = await apiClient.analyze.upload(files[0], content);
             } else {
                 data = await apiClient.chat.send({
                     message: content,
                     conversation_id: conversationId,
+                    project_id: projectContext?.id,  // Include project context
                 });
             }
 
-            if (data.conversation_id) {
+            if (data && data.conversation_id) {
                 setConversationId(data.conversation_id);
 
                 // If this is a new conversation, add it to history immediately
@@ -319,9 +390,9 @@ export default function WorkspacePage() {
             const aiMsg: WorkspaceMessage = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: data.response,
+                content: data?.response || "File uploaded successfully. How can I help you with this?",
                 timestamp: new Date(),
-                proposal: data.proposal ? {
+                proposal: data?.proposal ? {
                     id: `prop-${Date.now()}`,
                     title: data.proposal.title || "Draft Proposal",
                     summary: data.proposal.summary || "Generated from analysis",
@@ -439,6 +510,9 @@ export default function WorkspacePage() {
                                 <SheetContent side="left" className="w-[320px] sm:w-[400px] p-6">
                                     <SheetHeader className="mb-6">
                                         <SheetTitle>History</SheetTitle>
+                                        <SheetDescription className="sr-only">
+                                            View and manage your conversation history
+                                        </SheetDescription>
                                     </SheetHeader>
 
                                     {/* New Chat Button */}
@@ -601,6 +675,29 @@ export default function WorkspacePage() {
                         {/* FLOATING INPUT AREA */}
                         <div className="relative z-30 pb-4">
                             <div className="absolute bottom-full left-0 right-0 h-12 bg-gradient-to-t from-background/50 to-transparent pointer-events-none" />
+
+                            {/* Project Context Banner */}
+                            {isLoadingProject && (
+                                <div className="px-4 lg:px-8 mb-3">
+                                    <div className="max-w-3xl mx-auto">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-full text-sm">
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                                            <span className="text-muted-foreground">Loading project...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {projectContext && !isLoadingProject && (
+                                <div className="px-4 lg:px-8 mb-3">
+                                    <div className="max-w-3xl mx-auto">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-sm">
+                                            <FolderOpen className="w-3.5 h-3.5 text-primary" />
+                                            <span className="font-medium">{projectContext.name}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <InputArea
                                 onSendMessage={handleSendMessage}
                                 disabled={isLoading}
