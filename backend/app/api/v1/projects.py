@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
 from typing import List
 from app.core.security import verify_token
 from app.core.database import supabase
 from app.models.project import ProjectCreate, ProjectUpdate, ProjectDB
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -26,7 +29,7 @@ async def get_projects(user: dict = Depends(verify_token)):
         )
         return response.data
     except Exception as e:
-        print(f"ERROR FETCHING PROJECTS: {e}")
+        logger.error(f"Error fetching projects: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -46,7 +49,7 @@ async def create_project(project: ProjectCreate, user: dict = Depends(verify_tok
         response = supabase.table("projects").insert(project_data).execute()
         return response.data[0]
     except Exception as e:
-        print(f"ERROR CREATING PROJECT: {e}")
+        logger.error(f"Error creating project: {e}")
         raise HTTPException(status_code=400, detail="Project creation failed")
 
 

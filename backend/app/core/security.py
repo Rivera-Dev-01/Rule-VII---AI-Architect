@@ -1,7 +1,10 @@
-from fastapi import HTTPException, Security, status, Depends
+from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from app.core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Define the security scheme (Bearer Token)
 security = HTTPBearer()
@@ -14,9 +17,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     3. If valid, returns the user data.
     4. If fake or expired, throws an error.
     """
-    print(f"🚀 verify_token CALLED")  # DEBUG - check if function is called
     token = credentials.credentials
-    print(f"🎫 TOKEN RECEIVED: {token[:20]}...")  # DEBUG - show first 20 chars
 
     try:
         payload = jwt.decode(
@@ -25,7 +26,11 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
             algorithms=["HS256"],
             audience="authenticated"
         )
-        print(f"✅ TOKEN VALID: {payload.get('sub')}")  # DEBUG
+        
+        # Only log user ID in debug mode (never the token!)
+        if settings.DEBUG:
+            logger.debug(f"Token validated for user: {payload.get('sub')}")
+        
         return payload
 
     except jwt.ExpiredSignatureError:
@@ -41,7 +46,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
-        print(f"Auth Error: {e}")  # Helpful for debugging
+        # Log error details only in debug mode
+        if settings.DEBUG:
+            logger.error(f"Auth Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed",

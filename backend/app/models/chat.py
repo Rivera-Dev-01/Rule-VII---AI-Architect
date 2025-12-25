@@ -1,18 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 class AttachmentMetadata(BaseModel):
-    name: str
-    type: str
-    size: int
-    url: str
+    name: str = Field(..., max_length=255)
+    type: str = Field(..., max_length=100)
+    size: int = Field(..., gt=0, le=10485760)  # Max 10MB
+    url: str = Field(..., max_length=2000)
 
 class ChatRequest(BaseModel):
-    message: str
-    conversation_id: Optional[str] = None
-    project_id: Optional[str] = None  # For project context injection
-    attachments: Optional[List[AttachmentMetadata]] = None
+    message: str = Field(..., min_length=1, max_length=10000)
+    conversation_id: Optional[str] = Field(None, max_length=100)
+    project_id: Optional[str] = Field(None, max_length=100)
+    attachments: Optional[List[AttachmentMetadata]] = Field(None, max_length=5)
+    
+    @field_validator('message')
+    @classmethod
+    def sanitize_message(cls, v: str) -> str:
+        # Remove null bytes and control characters (except newlines/tabs)
+        return v.replace('\x00', '').strip()
 
 class ChatResponse(BaseModel):
     response: str
@@ -37,12 +43,12 @@ class Message(BaseModel):
     attachment: Optional[Any] = None
 
 class ProposalSaveRequest(BaseModel):
-    conversation_id: str
-    title: str
-    summary: Optional[str] = None
-    content: Optional[str] = None
+    conversation_id: str = Field(..., max_length=100)
+    title: str = Field(..., min_length=1, max_length=200)
+    summary: Optional[str] = Field(None, max_length=1000)
+    content: Optional[str] = Field(None, max_length=50000)
 
 class ProposalUpdateRequest(BaseModel):
-    title: str
-    summary: Optional[str] = None
-    content: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=200)
+    summary: Optional[str] = Field(None, max_length=1000)
+    content: Optional[str] = Field(None, max_length=50000)

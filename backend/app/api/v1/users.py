@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
 from app.core.security import verify_token
 from app.core.database import supabase
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -52,7 +55,7 @@ async def get_user(user: dict = Depends(verify_token)):
             }
 
     except Exception as e:
-        print(f"Database Error: {e}")
+        logger.error(f"Database error fetching user: {e}")
 
     # 3. Failsafe if still not found
     return {

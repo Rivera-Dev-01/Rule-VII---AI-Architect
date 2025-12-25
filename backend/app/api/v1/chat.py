@@ -1,34 +1,41 @@
 import uuid
+import logging
+from datetime import datetime, timezone
 from typing import List
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.core.security import verify_token
 from app.core.database import supabase
-from app.models.chat import ChatRequest, ChatResponse, ChatHistoryItem, Message,ProposalSaveRequest,ProposalUpdateRequest
+from app.core.config import settings
+from app.models.chat import ChatRequest, ChatResponse, ChatHistoryItem, Message, ProposalSaveRequest, ProposalUpdateRequest
 from app.services.rag_engine import RAGEngine
 from app.services.llm_engine import LLMEngine
+
+logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 rag_engine = RAGEngine()
 llm_engine = LLMEngine()
 
-print("✨ CHAT ROUTER LOADED")  # DEBUG
-
 
 @router.post("/", response_model=ChatResponse)
-async def chat(request: ChatRequest, user_data: dict = Depends(verify_token)):
+@limiter.limit("20/minute")
+async def chat(http_request: Request, request: ChatRequest, user_data: dict = Depends(verify_token)):
     """
     Send message and get AI response
     Pattern: AUTH → ACCESS → DATA → LLM → API
+    Rate Limited: 20 messages per minute
     """
-    print(f"🔐 USER DATA: {user_data}")  # DEBUG
-    print(f"📝 REQUEST: {request}")  # DEBUG
     user_id = user_data.get('sub')
 
     # Generate new conversation_id if not provided
     conversation_id = request.conversation_id
     if not conversation_id:
         conversation_id = str(uuid.uuid4())
-        print(f"🆕 NEW CONVERSATION ID: {conversation_id}")
+        if settings.DEBUG:
+            logger.debug(f"New conversation created: {conversation_id}")
         
         # Create SESSION entry first to satisfy Foreign Key constraint
         try:
@@ -42,8 +49,8 @@ async def chat(request: ChatRequest, user_data: dict = Depends(verify_token)):
                 
             supabase.table("sessions").insert(session_data).execute()
         except Exception as e:
-            print(f"ERROR CREATING SESSION: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to create conversation session: {str(e)}")
+            logger.error(f"Error creating session: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create conversation session")
 
     # 1. Save user message to database
     user_payload = {
@@ -57,9 +64,7 @@ async def chat(request: ChatRequest, user_data: dict = Depends(verify_token)):
     try:
         supabase.table("messages").insert(user_payload).execute()
     except Exception as e:
-        print(f"ERROR SAVING USER MESSAGE: {e}")
-        # Note: We might want to allow it to continue even if save fails, or raise error
-        # raise HTTPException(status_code=500, detail="Failed to save message")
+        logger.error(f"Error saving user message: {e}")
 
     # 2. Get RAG context (mock for now)
     sources = await rag_engine.retrieve(request.message, user_id)
@@ -95,9 +100,10 @@ Description: {p.get('description', 'No description')}
                 for f in files.data:
                     project_context += f"- {f['filename']} ({f['file_type']})\n"
             
-            print(f"📁 PROJECT CONTEXT: {project_context}")
+            if settings.DEBUG:
+                logger.debug(f"Project context loaded for project {request.project_id}")
         except Exception as e:
-            print(f"ERROR FETCHING PROJECT CONTEXT: {e}")
+            logger.error(f"Error fetching project context: {e}")
 
     # 3. Generate AI response (with project context)
     ai_result = await llm_engine.generate(request.message, sources, project_context)
@@ -114,7 +120,7 @@ Description: {p.get('description', 'No description')}
     try:
         supabase.table("messages").insert(ai_payload).execute()
     except Exception as e:
-        print(f"ERROR SAVING AI MESSAGE: {e}")
+        logger.error(f"Error saving AI message: {e}")
 
     # 5. Return response to frontend
     return ChatResponse(
@@ -146,7 +152,7 @@ async def get_project_session(project_id: str, user_data: dict = Depends(verify_
             return {"conversation_id": result.data[0]["id"]}
         return {"conversation_id": None}
     except Exception as e:
-        print(f"ERROR FETCHING PROJECT SESSION: {e}")
+        logger.error(f"Error fetching project session: {e}")
         return {"conversation_id": None}
 
 
@@ -246,7 +252,7 @@ async def toggle_favorite(conversation_id: str, user_data: dict = Depends(verify
                 .execute()
             return {"is_favorite": True}
     except Exception as e:
-        print(f"ERROR TOGGLING FAVORITE: {e}")
+        logger.error(f"Error toggling favorite: {e}")
         raise HTTPException(status_code=500, detail="Failed to toggle favorite")
 
 
@@ -273,7 +279,7 @@ async def delete_conversation(conversation_id: str, user_data: dict = Depends(ve
         
         return {"success": True}
     except Exception as e:
-        print(f"ERROR DELETING CONVERSATION: {e}")
+        logger.error(f"Error deleting conversation: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete conversation")
 
 
@@ -315,7 +321,7 @@ async def save_proposal(request: ProposalSaveRequest, user_data: dict = Depends(
         
         return response.data[0]
     except Exception as e:
-        print(f"ERROR SAVING PROPOSAL: {e}")
+        logger.error(f"Error saving proposal: {e}")
         raise HTTPException(status_code=500, detail="Failed to save proposal")
 
 @router.get("/proposals/{conversation_id}")
@@ -347,7 +353,7 @@ async def delete_proposal(id: str, user_data: dict = Depends(verify_token)):
 
         return {"success": True}
     except Exception as e:
-        print(f"ERROR DELETING PROPOSAL: {e}")
+        logger.error(f"Error deleting proposal: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete proposal")
 
 @router.put("/proposal/{id}")
@@ -360,7 +366,7 @@ async def update_proposal(id: str, request: ProposalUpdateRequest, user_data: di
             "title": request.title,
             "summary": request.summary,
             "content": request.content,
-            "updated_at": "now()"
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
 
         result = supabase.table("saved_proposals")\
@@ -375,5 +381,5 @@ async def update_proposal(id: str, request: ProposalUpdateRequest, user_data: di
         return result.data[0]
 
     except Exception as e:
-        print(f"ERROR UPDATING PROPOSAL: {e}")
+        logger.error(f"Error updating proposal: {e}")
         raise HTTPException(status_code=500, detail="Failed to update proposal")

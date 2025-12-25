@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Request, HTTPException, Header
+import logging
 from app.core.config import settings
 import hmac
 import hashlib
-import base64
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -20,19 +22,22 @@ async def auth_webhook(request: Request, x_supabase_signature: str = Header(None
     body = await request.body()
 
     # 2. Verify Signature (HMAC SHA256)
-    # Note: Ensure you are using the correct WEBHOOK secret from Supabase Database Webhooks,
-    # which is different from the JWT secret.
-    # If you haven't set up a webhook secret yet, you can temporarily skip this check
-    # BUT DO NOT DEPLOY WITHOUT IT.
-
-    # Uncomment this block when you have the SUPABASE_WEBHOOK_SECRET in .env
-    """
-    secret = settings.SUPABASE_WEBHOOK_SECRET.encode()
-    calculated_signature = hmac.new(secret, body, hashlib.sha256).hexdigest()
-    
-    if calculated_signature != x_supabase_signature:
-        raise HTTPException(status_code=401, detail="Invalid signature")
-    """
+    # Uses SUPABASE_WEBHOOK_SECRET from your Supabase Database Webhooks settings
+    if settings.SUPABASE_WEBHOOK_SECRET:
+        secret = settings.SUPABASE_WEBHOOK_SECRET.encode()
+        calculated_signature = hmac.new(secret, body, hashlib.sha256).hexdigest()
+        
+        if not hmac.compare_digest(calculated_signature, x_supabase_signature):
+            logger.warning("Webhook signature verification failed")
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    else:
+        # In development without secret configured, log a warning
+        if settings.DEBUG:
+            logger.warning("SUPABASE_WEBHOOK_SECRET not configured - skipping signature verification")
+        else:
+            # In production, require the secret
+            logger.error("SUPABASE_WEBHOOK_SECRET not configured in production!")
+            raise HTTPException(status_code=500, detail="Webhook configuration error")
 
     # 3. Process the event
     try:
@@ -42,12 +47,13 @@ async def auth_webhook(request: Request, x_supabase_signature: str = Header(None
 
         if event_type == 'INSERT' and json_body.get('table') == 'users':
             # Example: Create a corresponding profile in your public table
-            print(f"New user signed up: {record.get('id')}")
+            if settings.DEBUG:
+                logger.info(f"New user signed up: {record.get('id')}")
             # await create_user_profile(record)
 
         return {"status": "processed"}
 
     except Exception as e:
-        print(f"Webhook error: {e}")
+        logger.error(f"Webhook error: {e}")
         raise HTTPException(
             status_code=500, detail="Webhook processing failed")
