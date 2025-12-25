@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { FileText, Download, MoreHorizontal, Pencil, RefreshCw, Trash2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -118,106 +118,109 @@ interface DocumentSectionItemProps {
   onRevise?: (section: DocumentSection) => void;
 }
 
-function DocumentSectionItem({ section, index, isLast, onDelete, onEdit, onRevise }: DocumentSectionItemProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+const DocumentSectionItem = forwardRef<HTMLDivElement, DocumentSectionItemProps>(
+  function DocumentSectionItem({ section, index, isLast, onDelete, onEdit, onRevise }, ref) {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(`${section.title}\n\n${section.content}`);
-    setCopied(true);
-    setIsMenuOpen(false);
-    setTimeout(() => setCopied(false), 2000);
-  };
+    const handleCopy = async () => {
+      await navigator.clipboard.writeText(`${section.title}\n\n${section.content}`);
+      setCopied(true);
+      setIsMenuOpen(false);
+      setTimeout(() => setCopied(false), 2000);
+    };
 
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="group"
-    >
-      {/* Section Card */}
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+    return (
+      <motion.div
+        ref={ref}
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="group"
+      >
+        {/* Section Card */}
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
 
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-muted text-xs font-bold text-muted-foreground">
-              {index}
+          {/* Header */}
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-muted text-xs font-bold text-muted-foreground">
+                {index}
+              </span>
+              <h2 className="text-base font-semibold text-foreground">
+                {section.title}
+              </h2>
+            </div>
+
+            {/* Actions Menu */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+
+              {isMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                  <div className="absolute right-0 mt-1 w-44 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 text-foreground"
+                      onClick={handleCopy}
+                    >
+                      {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+                      {copied ? "Copied!" : "Copy"}
+                    </button>
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 text-foreground"
+                      onClick={() => { onRevise?.(section); setIsMenuOpen(false); }}
+                    >
+                      <RefreshCw className="w-4 h-4 text-blue-500" /> Revise with AI
+                    </button>
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 text-foreground"
+                      onClick={() => { onEdit?.(section); setIsMenuOpen(false); }}
+                    >
+                      <Pencil className="w-4 h-4 text-amber-500" /> Edit Manually
+                    </button>
+                    <div className="h-px bg-border my-1" />
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2"
+                      onClick={() => { onDelete?.(section.id); setIsMenuOpen(false); }}
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap pl-10">
+            {section.content}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-4 pt-3 border-t border-border flex items-center gap-3 text-[10px] text-muted-foreground font-mono pl-10">
+            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded">
+              {section.status.toUpperCase()}
             </span>
-            <h2 className="text-base font-semibold text-foreground">
-              {section.title}
-            </h2>
-          </div>
-
-          {/* Actions Menu */}
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-
-            {isMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
-                <div className="absolute right-0 mt-1 w-44 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 text-foreground"
-                    onClick={handleCopy}
-                  >
-                    {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
-                    {copied ? "Copied!" : "Copy"}
-                  </button>
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 text-foreground"
-                    onClick={() => { onRevise?.(section); setIsMenuOpen(false); }}
-                  >
-                    <RefreshCw className="w-4 h-4 text-blue-500" /> Revise with AI
-                  </button>
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 text-foreground"
-                    onClick={() => { onEdit?.(section); setIsMenuOpen(false); }}
-                  >
-                    <Pencil className="w-4 h-4 text-amber-500" /> Edit Manually
-                  </button>
-                  <div className="h-px bg-border my-1" />
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2"
-                    onClick={() => { onDelete?.(section.id); setIsMenuOpen(false); }}
-                  >
-                    <Trash2 className="w-4 h-4" /> Delete
-                  </button>
-                </div>
-              </>
-            )}
+            <span>Updated {new Date(section.lastUpdated).toLocaleTimeString()}</span>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap pl-10">
-          {section.content}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 pt-3 border-t border-border flex items-center gap-3 text-[10px] text-muted-foreground font-mono pl-10">
-          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded">
-            {section.status.toUpperCase()}
-          </span>
-          <span>Updated {new Date(section.lastUpdated).toLocaleTimeString()}</span>
-        </div>
-      </div>
-
-      {/* Separator between sections */}
-      {!isLast && (
-        <div className="flex items-center justify-center py-4">
-          <div className="w-px h-6 bg-border"></div>
-        </div>
-      )}
-    </motion.div>
-  );
-}
+        {/* Separator between sections */}
+        {!isLast && (
+          <div className="flex items-center justify-center py-4">
+            <div className="w-px h-6 bg-border"></div>
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+);
