@@ -22,7 +22,7 @@ llm_engine = LLMEngine()
 
 @router.post("/", response_model=ChatResponse)
 @limiter.limit("20/minute")
-async def chat(http_request: Request, request: ChatRequest, user_data: dict = Depends(verify_token)):
+async def chat(request: Request, chat_request: ChatRequest, user_data: dict = Depends(verify_token)):
     """
     Send message and get AI response
     Pattern: AUTH → ACCESS → DATA → LLM → API
@@ -31,7 +31,7 @@ async def chat(http_request: Request, request: ChatRequest, user_data: dict = De
     user_id = user_data.get('sub')
 
     # Generate new conversation_id if not provided
-    conversation_id = request.conversation_id
+    conversation_id = chat_request.conversation_id
     if not conversation_id:
         conversation_id = str(uuid.uuid4())
         if settings.DEBUG:
@@ -44,8 +44,8 @@ async def chat(http_request: Request, request: ChatRequest, user_data: dict = De
                 "user_id": user_id
             }
             # Link session to project if provided
-            if request.project_id:
-                session_data["project_id"] = request.project_id
+            if chat_request.project_id:
+                session_data["project_id"] = chat_request.project_id
                 
             supabase.table("sessions").insert(session_data).execute()
         except Exception as e:
@@ -55,10 +55,10 @@ async def chat(http_request: Request, request: ChatRequest, user_data: dict = De
     # 1. Save user message to database
     user_payload = {
         "conversation_id": conversation_id,
-        "content": request.message,
+        "content": chat_request.message,
         "role": "user",
         "user_id": user_id,
-        "attachment": [att.model_dump() for att in request.attachments] if request.attachments else None
+        "attachment": [att.model_dump() for att in chat_request.attachments] if chat_request.attachments else None
     }
 
     try:
@@ -67,16 +67,16 @@ async def chat(http_request: Request, request: ChatRequest, user_data: dict = De
         logger.error(f"Error saving user message: {e}")
 
     # 2. Get RAG context (mock for now)
-    sources = await rag_engine.retrieve(request.message, user_id)
+    sources = await rag_engine.retrieve(chat_request.message, user_id)
 
     # 2.5 Get project context if project_id provided
     project_context = ""
-    if request.project_id:
+    if chat_request.project_id:
         try:
             # Fetch project info
             project = supabase.table("projects")\
                 .select("*")\
-                .eq("id", request.project_id)\
+                .eq("id", chat_request.project_id)\
                 .eq("user_id", user_id)\
                 .execute()
             
@@ -92,7 +92,7 @@ Description: {p.get('description', 'No description')}
             # Fetch uploaded files
             files = supabase.table("project_files")\
                 .select("filename, file_type")\
-                .eq("project_id", request.project_id)\
+                .eq("project_id", chat_request.project_id)\
                 .execute()
             
             if files.data:
@@ -101,12 +101,12 @@ Description: {p.get('description', 'No description')}
                     project_context += f"- {f['filename']} ({f['file_type']})\n"
             
             if settings.DEBUG:
-                logger.debug(f"Project context loaded for project {request.project_id}")
+                logger.debug(f"Project context loaded for project {chat_request.project_id}")
         except Exception as e:
             logger.error(f"Error fetching project context: {e}")
 
     # 3. Generate AI response (with project context)
-    ai_result = await llm_engine.generate(request.message, sources, project_context)
+    ai_result = await llm_engine.generate(chat_request.message, sources, project_context)
 
     # 4. Save AI response to database
     ai_payload = {
