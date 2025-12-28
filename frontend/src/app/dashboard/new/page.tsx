@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Scale, ArrowLeft, X, Menu, Plus, Loader2, Trash2, MoreHorizontal, Star, Search, FolderOpen, MapPin, Paperclip } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +25,7 @@ import DocumentPanel from "@/components/workspace/DocumentPanel";
 import DraftBubble from "@/components/workspace/DraftBubble";
 import MessageBubble from "@/components/chat/MessageBubble";
 import InputArea from "@/components/chat/InputArea";
+import ThoughtStream from "@/components/chat/ThoughtStream";
 
 // Import Types
 import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/workspace";
@@ -60,7 +62,12 @@ export default function WorkspacePage() {
     const [inputOverride, setInputOverride] = useState("");
     const [editingSection, setEditingSection] = useState<DocumentSection | null>(null);
     const [editForm, setEditForm] = useState({ title: "", content: "" });
-    const [revisingSection, setRevisingSection] = useState<DocumentSection | null>(null); // Track section being revised
+    const [revisingSection, setRevisingSection] = useState<DocumentSection | null>(null);
+
+    // Thought Stream State (simplified)
+    const [thoughtSteps] = useState<string[]>(["Searching", "Analyzing", "Generating"]);
+    const [isThoughtComplete, setIsThoughtComplete] = useState(false);
+    const [showThoughtStream, setShowThoughtStream] = useState(false);
 
     // Auto-scroll logic
     useEffect(() => {
@@ -337,10 +344,18 @@ export default function WorkspacePage() {
         }
     };
 
+    // --- THOUGHT STREAM HELPERS ---
+    const initializeThoughtStream = useCallback(() => {
+        setIsThoughtComplete(false);
+        setShowThoughtStream(true);
+    }, []);
+
     // --- MAIN SEND MESSAGE WITH BACKEND ---
     const handleSendMessage = async (content: string, files: File[]) => {
         setInputOverride(""); // Clear override
         if (!content && files.length === 0) return;
+
+        const requestStartTime = Date.now(); // Track for minimum thinking time
 
         // 1. Optimistic UI: Add user message immediately
         const userMsg: WorkspaceMessage = {
@@ -357,6 +372,9 @@ export default function WorkspacePage() {
         };
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
+
+        // Initialize thought stream
+        initializeThoughtStream();
 
         try {
             let data: ChatResponse;
@@ -387,6 +405,16 @@ export default function WorkspacePage() {
                 }
             }
 
+            // Minimum delay for thought stream animation (4 seconds total)
+            const MINIMUM_THINKING_TIME = 4000;
+            const elapsedTime = Date.now() - requestStartTime;
+            const remainingDelay = Math.max(0, MINIMUM_THINKING_TIME - elapsedTime);
+
+            await new Promise(resolve => setTimeout(resolve, remainingDelay));
+
+            // Hide thought stream after animation completes
+            setShowThoughtStream(false);
+
             const aiMsg: WorkspaceMessage = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
@@ -405,6 +433,7 @@ export default function WorkspacePage() {
 
         } catch (error: any) {
             console.error("Workspace Chat Error:", error);
+            setShowThoughtStream(false);
             const errorMsg: WorkspaceMessage = {
                 id: (Date.now() + 2).toString(),
                 role: "system",
@@ -669,6 +698,16 @@ export default function WorkspacePage() {
                                         <div ref={scrollRef} />
                                     </div>
                                 )}
+
+                                {/* Thought Stream */}
+                                <AnimatePresence>
+                                    {showThoughtStream && (
+                                        <ThoughtStream
+                                            steps={thoughtSteps}
+                                            isComplete={isThoughtComplete}
+                                        />
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </ScrollArea>
 

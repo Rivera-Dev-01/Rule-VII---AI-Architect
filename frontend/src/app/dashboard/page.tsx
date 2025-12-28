@@ -11,8 +11,6 @@ import {
     FileBox,
     Layers,
     Bell,
-    Sun,
-    Moon,
     Loader2,
     X,
     Calendar,
@@ -37,7 +35,6 @@ interface Project {
 
 export default function DashboardPage() {
     const currentDate = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
-    const [isDark, setIsDark] = useState(false);
 
     // --- REAL DATA STATE ---
     const [projects, setProjects] = useState<Project[]>([]);
@@ -78,15 +75,9 @@ export default function DashboardPage() {
     // Initial Load
     useEffect(() => {
         fetchProjects();
+    }, []);
 
-        // Theme Logic
-        if (typeof window !== 'undefined') {
-            const isSystemDark = document.documentElement.classList.contains('dark');
-            setIsDark(isSystemDark);
-        }
-    }, []); // Initial load only
-
-    // --- 4. CALCULATE DASHBOARD METRICS ---
+    // --- CALCULATE DASHBOARD METRICS ---
     const criticalProjects = projects.filter(p => p.priority === 'critical');
     const mediumProjects = projects.filter(p => p.priority === 'medium');
     const alertCount = criticalProjects.length + mediumProjects.length;
@@ -102,13 +93,6 @@ export default function DashboardPage() {
         trendText = `${mediumProjects.length} Need${mediumProjects.length > 1 ? '' : 's'} Attention`;
         trendAlert = true;
     }
-
-    const toggleTheme = () => {
-        const newMode = !isDark;
-        setIsDark(newMode);
-        if (newMode) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
-    };
 
     return (
         <div className="flex min-h-screen bg-neutral-50/40 dark:bg-neutral-950 text-foreground font-sans selection:bg-primary/10">
@@ -132,12 +116,6 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <Button variant="ghost" size="icon" onClick={toggleTheme} className="mr-2">
-                                {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                            </Button>
-
-                            {/* REMOVED: Docs Button */}
-
                             <Link href="/dashboard/new">
                                 <Button
                                     className="h-10 px-6 text-xs font-sans uppercase tracking-widest shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"

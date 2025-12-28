@@ -2,15 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useTheme } from "next-themes"; // <--- 1. IMPORT THIS
 import {
     Check,
     Scale,
     BrainCircuit,
     ShieldCheck,
     ArrowRight,
-    Moon,
-    Sun,
     Search,
     AlertTriangle,
     FileText,
@@ -23,11 +20,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TypewriterText } from "@/components/ui/typewriter-text";
 
 export default function LandingPage() {
-    // --- 2. USE GLOBAL THEME HOOK ---
-    const { setTheme, theme } = useTheme();
     const [mounted, setMounted] = useState(false);
 
-    // Prevent hydration mismatch by waiting for mount
     useEffect(() => {
         setMounted(true);
     }, []);
@@ -36,7 +30,7 @@ export default function LandingPage() {
         <div className={`min-h-screen bg-background text-foreground transition-colors duration-300 selection:bg-primary/10 selection:text-primary font-sans`}>
 
             {/* Background Grid Pattern */}
-            <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] dark:opacity-[0.03]"
+            <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03]"
                 style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm1 1h38v38H1V1z' fill='currentColor' fill-rule='evenodd'/%3E%3C/svg%3E")` }}>
             </div>
 
@@ -53,20 +47,9 @@ export default function LandingPage() {
                     <div className="hidden md:flex items-center gap-6">
                         <a href="#features" className="text-xs font-sans font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Capabilities</a>
                         <a href="#pricing" className="text-xs font-sans font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-                        
+
                         <div className="h-4 w-px bg-border mx-2"></div>
-                        
-                        {/* --- 3. UPDATED TOGGLE BUTTON --- */}
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                            className="rounded-full"
-                        >
-                            {/* Wait for mount to avoid icon flickering */}
-                            {mounted && (theme === "dark" ? <Sun size={18} /> : <Moon size={18} />)}
-                        </Button>
-                        
+
                         <Link href="/login">
                             <Button variant="ghost" className="font-sans uppercase tracking-wide text-xs">Log In</Button>
                         </Link>
@@ -74,7 +57,7 @@ export default function LandingPage() {
                             <Button className="font-sans uppercase tracking-widest text-xs">Get Started</Button>
                         </Link>
                     </div>
-                    
+
                     <div className="md:hidden">
                         <Button variant="ghost" size="icon">
                             <Menu size={24} />
@@ -91,17 +74,17 @@ export default function LandingPage() {
                         <Badge variant="outline" className="px-3 py-1 text-[10px] font-mono font-normal rounded-full border-zinc-400 dark:border-zinc-700 uppercase tracking-wider">
                             ● SYSTEM V1.0 &nbsp;|&nbsp; NBCP COMPLIANT
                         </Badge>
-                        
+
                         <h1 className="text-6xl md:text-7xl lg:text-8xl font-heading font-medium leading-[0.9] tracking-tighter text-foreground">
                             Precision <br />
                             <span className="italic font-light text-muted-foreground">in every Permit.</span>
                         </h1>
-                        
+
                         <p className="text-xl text-muted-foreground leading-relaxed max-w-lg font-sans font-light">
                             The first AI Code Consultant engineered for Philippine Architecture.
                             Draft with confidence knowing your setbacks and egress are compliant.
                         </p>
-                        
+
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Link href="/signup">
                                 <Button size="lg" className="h-14 px-8 w-full sm:w-auto gap-2 font-sans uppercase tracking-widest text-xs font-semibold">
@@ -130,7 +113,7 @@ export default function LandingPage() {
                                 <div className="w-4"></div>
                             </div>
                             <div className="p-6 font-mono text-sm space-y-6 flex-1 overflow-hidden">
-                                
+
                                 {/* User Message */}
                                 <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                                     <div className="w-6 h-6 rounded bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400 shrink-0">AR</div>
@@ -146,9 +129,9 @@ export default function LandingPage() {
                                         <span className="text-red-400 font-bold block mb-2">[NON-COMPLIANT]</span>
                                         <p className="mb-2 text-zinc-400">Reference: <span className="underline decoration-zinc-600">NBCP Rule 12 & RA 9514 Div 8.</span></p>
                                         <p className="opacity-90 leading-relaxed min-h-[60px]">
-                                            <TypewriterText 
-                                                text="For educational/office occupancies, the minimum width for a corridor is 1.12 meters (44 inches). Your 1.0m width is insufficient." 
-                                                delay={1.5} 
+                                            <TypewriterText
+                                                text="For educational/office occupancies, the minimum width for a corridor is 1.12 meters (44 inches). Your 1.0m width is insufficient."
+                                                delay={1.5}
                                                 loop={true}
                                             />
                                         </p>
@@ -174,7 +157,7 @@ export default function LandingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Feature 1 */}
                         <Card className="md:col-span-2 p-8 relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-zinc-200 dark:border-zinc-800">
-                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                 <ShieldCheck size={200} />
                             </div>
                             <CardHeader className="p-0 mb-6">
@@ -292,9 +275,9 @@ export default function LandingPage() {
 
                         {/* Monthly Tier */}
                         <Card className="flex flex-col h-full hover:shadow-xl transition-shadow duration-300 border-primary/20 relative">
-                             <div className="absolute top-0 right-0 -mt-3 mr-4">
+                            <div className="absolute top-0 right-0 -mt-3 mr-4">
                                 <Badge className="font-sans uppercase tracking-wider text-[10px]">Popular</Badge>
-                             </div>
+                            </div>
                             <CardHeader>
                                 <CardTitle className="font-heading text-xl">Monthly License</CardTitle>
                                 <CardDescription className="font-sans">For freelancers</CardDescription>

@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api-client";
 import { ChatResponse, SavedProposal } from "@/lib/api-types";
 import MessageBubble from "./MessageBubble";
 import InputArea from "./InputArea";
+import ThoughtStream from "./ThoughtStream";
 // Import your types
-import { WorkspaceMessage, DraftProposal } from "@/types/workspace";
+import { WorkspaceMessage, DraftProposal, ThoughtStep, RAGSource } from "@/types/workspace";
 import {
     Scale,
-    Loader2,
     FileCheck,
     MoreHorizontal,
     Trash2,
@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-// --- UI COMPONENTS (Ensure you have Button/Input/Textarea, or swap to HTML tags if needed) ---
+// --- UI COMPONENTS ---
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,11 @@ export default function ChatInterface() {
     const [conversationId, setConversationId] = useState<string | undefined>(undefined);
     const [savedProposals, setSavedProposals] = useState<SavedProposal[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // State for Thought Stream
+    const [thoughtSteps, setThoughtSteps] = useState<ThoughtStep[]>([]);
+    const [isThoughtComplete, setIsThoughtComplete] = useState(false);
+    const [showThoughtStream, setShowThoughtStream] = useState(false);
 
     // State for Editing
     const [editingItem, setEditingItem] = useState<SavedProposal | null>(null);
@@ -99,11 +104,68 @@ export default function ChatInterface() {
     };
 
 
+    // --- THOUGHT STREAM HELPERS ---
+
+    const initializeThoughtStream = useCallback((query: string) => {
+        console.log("🔍 initializeThoughtStream called with:", query);
+
+        // Reset thought stream
+        setIsThoughtComplete(false);
+        setShowThoughtStream(true);
+        console.log("✅ setShowThoughtStream(true) called");
+
+        // Initial steps based on query
+        const initialSteps: ThoughtStep[] = [
+            { id: 'search', label: 'Searching building codes...', status: 'active' },
+            { id: 'analyze', label: 'Analyzing requirements...', status: 'pending' },
+            { id: 'generate', label: 'Generating compliance review...', status: 'pending' }
+        ];
+
+        setThoughtSteps(initialSteps);
+
+        // Progress to analyzing after a delay
+        setTimeout(() => {
+            setThoughtSteps(prev => prev.map(step =>
+                step.id === 'search' ? { ...step, status: 'complete' as const } :
+                    step.id === 'analyze' ? { ...step, status: 'active' as const } : step
+            ));
+        }, 800);
+    }, []);
+
+    const updateThoughtStreamWithSources = useCallback((sources: RAGSource[]) => {
+        if (sources && sources.length > 0) {
+            // Create steps from actual RAG sources
+            const sourceSteps: ThoughtStep[] = sources.slice(0, 3).map((source, idx) => ({
+                id: `source-${idx}`,
+                label: `Found: ${source.section || 'Relevant section'}`,
+                status: 'complete' as const,
+                document: source.document,
+                section: source.section,
+                similarity: source.similarity
+            }));
+
+            setThoughtSteps([
+                { id: 'search', label: 'Searched building codes', status: 'complete' },
+                ...sourceSteps,
+                { id: 'generate', label: 'Generated compliance review', status: 'complete' }
+            ]);
+        } else {
+            // No sources - just show completion
+            setThoughtSteps([
+                { id: 'search', label: 'Searched building codes', status: 'complete' },
+                { id: 'generate', label: 'Generated response', status: 'complete' }
+            ]);
+        }
+        setIsThoughtComplete(true);
+    }, []);
+
     // --- CHAT LOGIC ---
 
-    const handleSendMessage = async (content: string, file: File | null) => {
+    const handleSendMessage = async (content: string, files: File[]) => {
         setInputOverride("");
-        if (!content && !file) return;
+        if (!content && files.length === 0) return;
+
+        const file = files.length > 0 ? files[0] : null; // Use first file for now
 
         // Create User Message strictly following WorkspaceMessage
         const userMsg: WorkspaceMessage = {
@@ -116,6 +178,9 @@ export default function ChatInterface() {
         setMessages((prev) => [...prev, userMsg]);
         setIsLoading(true);
 
+        // Initialize thought stream
+        initializeThoughtStream(content);
+
         try {
             let data: ChatResponse;
             if (file) {
@@ -125,6 +190,9 @@ export default function ChatInterface() {
             }
 
             if (data.conversation_id && !conversationId) setConversationId(data.conversation_id);
+
+            // Update thought stream with actual sources
+            updateThoughtStreamWithSources(data.sources as RAGSource[]);
 
             // Create AI Message strictly following WorkspaceMessage
             const aiMsg: WorkspaceMessage = {
@@ -145,6 +213,7 @@ export default function ChatInterface() {
 
         } catch (error: any) {
             console.error("Chat Error:", error);
+            setShowThoughtStream(false);
             const errorMsg: WorkspaceMessage = {
                 id: (Date.now() + 2).toString(),
                 role: "system",
@@ -216,15 +285,16 @@ export default function ChatInterface() {
                         <MessageBubble
                             key={msg.id}
                             {...msg}
-                            onApprove={handleApproveProposal}
                         />
                     ))}
 
-                    {isLoading && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse ml-4">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Analyzing...</span>
-                        </div>
+                    {/* Thought Stream - Replaces simple loader */}
+                    {showThoughtStream && (
+                        <ThoughtStream
+                            steps={thoughtSteps}
+                            isComplete={isThoughtComplete}
+                            onCollapse={() => setShowThoughtStream(false)}
+                        />
                     )}
                     <div ref={scrollRef} />
                 </div>

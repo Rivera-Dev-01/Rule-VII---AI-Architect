@@ -1,11 +1,29 @@
 // frontend/src/types/workspace.ts
 
+// RAG Source from backend
+export interface RAGSource {
+    document: string;
+    page: number;
+    section: string;
+    similarity: number;
+}
+
+// Thought Stream step for AI processing visualization
+export interface ThoughtStep {
+    id: string;
+    label: string;
+    status: 'pending' | 'active' | 'complete';
+    document?: string;
+    section?: string;
+    similarity?: number;
+}
+
 export type DocumentStatus = 'draft' | 'approved' | 'rejected';
 
 export interface DocumentSection {
     id: string;
     title: string;
-    content: string; 
+    content: string;
     status: DocumentStatus;
     lastUpdated: Date;
     projectId?: string; // Link to a project
@@ -17,7 +35,7 @@ export interface DraftProposal {
     title: string;
     summary: string;
     proposedContent: string;
-    reasoning: string; 
+    reasoning: string;
 }
 
 export interface WorkspaceMessage {
@@ -30,7 +48,7 @@ export interface WorkspaceMessage {
         name: string;
         type: string;
         size: number;
-        url: string; 
+        url: string;
     };
 }
 
