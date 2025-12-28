@@ -3,13 +3,19 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Scale, ArrowLeft, Loader2, AlertCircle } from "lucide-react"; // Added AlertCircle
+import dynamic from "next/dynamic";
+import { Scale, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TypewriterText } from "@/components/ui/typewriter-text";
-import { supabase } from "@/lib/supabase"; 
-import { cn } from "@/lib/utils"; // Make sure you import cn for conditional classes
+import { PageTransition } from "@/components/ui/PageTransition";
+import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+
+const SpotlightCard = dynamic(() => import('@/components/ui/SpotlightCard'), {
+  ssr: false
+});
 
 const MESSAGES = [
   "Join thousands of Architects automating code compliance...",
@@ -18,9 +24,14 @@ const MESSAGES = [
 ];
 
 export default function SignupPage() {
+  const [mounted, setMounted] = useState(false);
   const [currentMsgIndex, setCurrentMsgIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -49,14 +60,14 @@ export default function SignupPage() {
     setFormData(prev => ({ ...prev, [id]: value }));
     // Clear error when user starts typing
     if (errors[id]) {
-        setErrors(prev => ({ ...prev, [id]: "" }));
+      setErrors(prev => ({ ...prev, [id]: "" }));
     }
   };
 
   // --- HANDLE SIGNUP ---
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // 1. CUSTOM VALIDATION LOGIC
     const newErrors: Record<string, string> = {};
     if (!formData.firstName) newErrors.firstName = "REQUIRED FIELD";
@@ -66,8 +77,8 @@ export default function SignupPage() {
     if (formData.password !== formData.confirmPass) newErrors.confirmPass = "PASSWORDS DO NOT MATCH";
 
     if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-        return; // Stop here if errors exist
+      setErrors(newErrors);
+      return; // Stop here if errors exist
     }
 
     setLoading(true);
@@ -77,11 +88,11 @@ export default function SignupPage() {
         email: formData.email,
         password: formData.password,
         options: {
-            data: {
-                first_name: formData.firstName,
-                last_name: formData.lastName
-            },
-            emailRedirectTo: `${location.origin}/auth/callback`,
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName
+          },
+          emailRedirectTo: `${location.origin}/auth/callback`,
         }
       });
 
@@ -100,114 +111,115 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden bg-background font-sans selection:bg-primary/10">
-      
-      {/* LEFT SIDE - Form */}
-      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-background relative overflow-y-auto">
-        <Link href="/" className="absolute top-8 left-8 text-muted-foreground hover:text-foreground transition-colors z-10 group">
-          <div className="flex items-center gap-2 text-xs font-sans uppercase tracking-widest font-medium group-hover:underline underline-offset-4">
-             <ArrowLeft size={14} /> Back
-          </div>
-        </Link>
+    <PageTransition>
+      <div className={`w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden bg-background font-sans selection:bg-primary/10 transition-opacity duration-700 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
 
-        <div className="mx-auto grid w-[380px] gap-8 mt-12 md:mt-0">
-          <div className="grid gap-4 text-center">
-            <div className="flex justify-center mb-2">
-               <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-lg shadow-primary/20">
+        {/* LEFT SIDE - Form */}
+        <SpotlightCard className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-background relative overflow-y-auto" spotlightColor="rgba(255, 255, 255, 0.03)">
+          <Link href="/" className="absolute top-8 left-8 text-muted-foreground hover:text-foreground transition-colors z-10 group">
+            <div className="flex items-center gap-2 text-xs font-sans uppercase tracking-widest font-medium group-hover:underline underline-offset-4">
+              <ArrowLeft size={14} /> Back
+            </div>
+          </Link>
+
+          <div className="mx-auto grid w-[380px] gap-8 mt-12 md:mt-0">
+            <div className="grid gap-4 text-center">
+              <div className="flex justify-center mb-2">
+                <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-lg shadow-primary/20">
                   <Scale size={24} strokeWidth={3} />
-               </div>
+                </div>
+              </div>
+              <h1 className="text-4xl font-heading font-medium tracking-tight">Create an account</h1>
+              <p className="text-balance text-muted-foreground font-sans font-light">
+                Enter your professional details to get started
+              </p>
             </div>
-            <h1 className="text-4xl font-heading font-medium tracking-tight">Create an account</h1>
-            <p className="text-balance text-muted-foreground font-sans font-light">
-              Enter your professional details to get started
-            </p>
-          </div>
 
-          {/* ADD noValidate HERE TO STOP BROWSER POPUPS */}
-          <form onSubmit={handleSignup} className="grid gap-5" noValidate>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="firstName" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">First name</Label>
-                <Input 
-                    id="firstName" 
-                    placeholder="Miggy" 
-                    value={formData.firstName} 
-                    onChange={handleChange} 
+            {/* ADD noValidate HERE TO STOP BROWSER POPUPS */}
+            <form onSubmit={handleSignup} className="grid gap-5" noValidate>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="firstName" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">First name</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="Miggy"
+                    value={formData.firstName}
+                    onChange={handleChange}
                     className={cn(
-                        "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
-                        errors.firstName && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
+                      "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
+                      errors.firstName && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
                     )}
-                />
-                {errors.firstName && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.firstName}</p>}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lastName" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Last name</Label>
-                <Input 
-                    id="lastName" 
-                    placeholder="Rivera" 
-                    value={formData.lastName} 
-                    onChange={handleChange} 
+                  />
+                  {errors.firstName && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.firstName}</p>}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="lastName" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Last name</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Rivera"
+                    value={formData.lastName}
+                    onChange={handleChange}
                     className={cn(
-                        "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
-                        errors.lastName && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
+                      "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
+                      errors.lastName && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
                     )}
-                />
-                 {errors.lastName && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.lastName}</p>}
+                  />
+                  {errors.lastName && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.lastName}</p>}
+                </div>
               </div>
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="email" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Work Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="architect@firm.com" 
-                value={formData.email} 
-                onChange={handleChange} 
-                className={cn(
+
+              <div className="grid gap-2">
+                <Label htmlFor="email" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Work Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="architect@firm.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={cn(
                     "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
                     errors.email && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
-                )}
-              />
-              {errors.email && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.email}</p>}
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="password" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                value={formData.password} 
-                onChange={handleChange} 
-                className={cn(
+                  )}
+                />
+                {errors.email && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.email}</p>}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="password" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={cn(
                     "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
                     errors.password && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
-                )}
-              />
-              {errors.password && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.password}</p>}
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="confirmPass" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Confirm Password</Label>
-              <Input 
-                id="confirmPass" 
-                type="password" 
-                value={formData.confirmPass} 
-                onChange={handleChange} 
-                className={cn(
+                  )}
+                />
+                {errors.password && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.password}</p>}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPass" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Confirm Password</Label>
+                <Input
+                  id="confirmPass"
+                  type="password"
+                  value={formData.confirmPass}
+                  onChange={handleChange}
+                  className={cn(
                     "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
                     errors.confirmPass && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
-                )}
-              />
-               {errors.confirmPass && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.confirmPass}</p>}
-            </div>
-            
-            <Button type="submit" className="w-full h-10 font-sans uppercase tracking-widest text-xs font-semibold" disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Initialize Account"}
-            </Button>
-          </form>
-            
+                  )}
+                />
+                {errors.confirmPass && <p className="text-[10px] font-mono text-red-500 flex items-center gap-1"><AlertCircle size={10} /> {errors.confirmPass}</p>}
+              </div>
+
+              <Button type="submit" className="w-full h-10 font-sans uppercase tracking-widest text-xs font-semibold" disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Initialize Account"}
+              </Button>
+            </form>
+
             <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-border/60" />
@@ -218,36 +230,37 @@ export default function SignupPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-               <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><GoogleIcon className="h-4 w-4" /></Button>
-               <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><FacebookIcon className="h-4 w-4 text-[#1877F2]" /></Button>
-               <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><MicrosoftIcon className="h-4 w-4" /></Button>
+              <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><GoogleIcon className="h-4 w-4" /></Button>
+              <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><FacebookIcon className="h-4 w-4 text-[#1877F2]" /></Button>
+              <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><MicrosoftIcon className="h-4 w-4" /></Button>
             </div>
-          
-          <div className="mt-2 text-center text-sm font-sans font-light text-muted-foreground">
-            Already have an account? <Link href="/login" className="underline font-medium hover:text-primary underline-offset-4">Log in</Link>
+
+            <div className="mt-2 text-center text-sm font-sans font-light text-muted-foreground">
+              Already have an account? <Link href="/login" className="underline font-medium hover:text-primary underline-offset-4">Log in</Link>
+            </div>
+          </div>
+        </SpotlightCard>
+
+        {/* RIGHT SIDE - Visuals (Unchanged) */}
+        <div className="hidden bg-zinc-950 lg:flex flex-col relative justify-center items-center text-white p-12 border-l border-zinc-800">
+          <div className="absolute inset-0 z-0 opacity-20" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM22.485 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 22.485l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 22.485l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 54.627l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 54.627l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM54.627 60L53.8 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828zM22.485 60L21.657 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828z' fill='%23FFF' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E")` }}></div>
+          <div className="z-10 max-w-lg text-left">
+            <div className="mb-8 inline-block rounded-full bg-white/5 border border-white/10 px-3 py-1 text-[10px] font-mono tracking-widest backdrop-blur-sm text-zinc-300">
+              SYSTEM V1.0 // REGISTRATION
+            </div>
+            <h2 className="text-3xl font-heading font-medium tracking-tight sm:text-4xl mb-8 min-h-[160px] leading-tight text-zinc-100">
+              <TypewriterText key={currentMsgIndex} text={MESSAGES[currentMsgIndex]} delay={0.1} />
+            </h2>
+            <p className="text-zinc-400 max-w-md text-lg leading-relaxed font-sans font-light">
+              Create your professional profile today to access unlimited AI-powered code reviews.
+            </p>
+          </div>
+          <div className="absolute bottom-8 left-12 text-zinc-600 text-[10px] font-mono tracking-widest uppercase">
+            RIVERA // TAGUIG, PH
           </div>
         </div>
       </div>
-
-      {/* RIGHT SIDE - Visuals (Unchanged) */}
-      <div className="hidden bg-zinc-950 lg:flex flex-col relative justify-center items-center text-white p-12 border-l border-zinc-800">
-         <div className="absolute inset-0 z-0 opacity-20" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM22.485 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 22.485l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 22.485l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 54.627l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 54.627l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM54.627 60L53.8 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828zM22.485 60L21.657 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828z' fill='%23FFF' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E")` }}></div>
-         <div className="z-10 max-w-lg text-left">
-            <div className="mb-8 inline-block rounded-full bg-white/5 border border-white/10 px-3 py-1 text-[10px] font-mono tracking-widest backdrop-blur-sm text-zinc-300">
-                SYSTEM V1.0 // REGISTRATION
-            </div>
-            <h2 className="text-3xl font-heading font-medium tracking-tight sm:text-4xl mb-8 min-h-[160px] leading-tight text-zinc-100">
-               <TypewriterText key={currentMsgIndex} text={MESSAGES[currentMsgIndex]} delay={0.1}/>
-            </h2>
-            <p className="text-zinc-400 max-w-md text-lg leading-relaxed font-sans font-light">
-                Create your professional profile today to access unlimited AI-powered code reviews.
-            </p>
-         </div>
-         <div className="absolute bottom-8 left-12 text-zinc-600 text-[10px] font-mono tracking-widest uppercase">
-            RIVERA // TAGUIG, PH
-         </div>
-      </div>
-    </div>
+    </PageTransition>
   );
 }
 

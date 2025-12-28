@@ -3,13 +3,19 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Scale, ArrowLeft, Loader2, AlertCircle } from "lucide-react"; // Added AlertCircle
+import dynamic from "next/dynamic";
+import { Scale, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TypewriterText } from "@/components/ui/typewriter-text";
-import { supabase } from "@/lib/supabase"; 
-import { cn } from "@/lib/utils"; // Added cn utility
+import { PageTransition } from "@/components/ui/PageTransition";
+import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+
+const SpotlightCard = dynamic(() => import('@/components/ui/SpotlightCard'), {
+  ssr: false
+});
 
 const MESSAGES = [
   "Instantly audit your floor plans against NBCP Rule VII...",
@@ -18,15 +24,20 @@ const MESSAGES = [
 ];
 
 export default function LoginPage() {
+  const [mounted, setMounted] = useState(false);
   const [currentMsgIndex, setCurrentMsgIndex] = useState(0);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   // --- ERROR STATE ---
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // --- THE LOGIC: LOOPING TIMER ---
   useEffect(() => {
@@ -41,15 +52,15 @@ export default function LoginPage() {
   // --- HANDLE LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // 1. CUSTOM VALIDATION (Matches Signup Style)
     const newErrors: Record<string, string> = {};
     if (!email) newErrors.email = "REQUIRED FIELD";
     if (!password) newErrors.password = "REQUIRED FIELD";
 
     if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-        return; // Stop here if errors exist
+      setErrors(newErrors);
+      return; // Stop here if errors exist
     }
 
     setLoading(true);
@@ -75,100 +86,101 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden bg-background font-sans selection:bg-primary/10">
-      
-      {/* LEFT SIDE - The Form */}
-      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-background relative">
-        <Link href="/" className="absolute top-8 left-8 text-muted-foreground hover:text-foreground transition-colors group">
-          <div className="flex items-center gap-2 text-xs font-sans uppercase tracking-widest font-medium group-hover:underline underline-offset-4">
-             <ArrowLeft size={14} /> Back
-          </div>
-        </Link>
+    <PageTransition>
+      <div className={`w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden bg-background font-sans selection:bg-primary/10 transition-opacity duration-700 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
 
-        <div className="mx-auto grid w-[350px] gap-8">
-          <div className="grid gap-4 text-center">
-            <div className="flex justify-center mb-2">
-               <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-lg shadow-primary/20">
-                  <Scale size={24} strokeWidth={3} />
-               </div>
+        {/* LEFT SIDE - The Form */}
+        <SpotlightCard className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-background relative" spotlightColor="rgba(255, 255, 255, 0.03)">
+          <Link href="/" className="absolute top-8 left-8 text-muted-foreground hover:text-foreground transition-colors group">
+            <div className="flex items-center gap-2 text-xs font-sans uppercase tracking-widest font-medium group-hover:underline underline-offset-4">
+              <ArrowLeft size={14} /> Back
             </div>
-            
-            {/* UPDATED: Bodoni Heading */}
-            <h1 className="text-4xl font-heading font-medium tracking-tight">Welcome back</h1>
-            
-            {/* UPDATED: Manrope Light */}
-            <p className="text-balance text-muted-foreground font-sans font-light">
-              Enter your credentials to access the terminal
-            </p>
-          </div>
+          </Link>
 
-          {/* ADDED: noValidate to stop browser bubbles */}
-          <form onSubmit={handleLogin} className="grid gap-5" noValidate>
-            <div className="grid gap-2">
-              {/* UPDATED: Technical Label */}
-              <Label htmlFor="email" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
+          <div className="mx-auto grid w-[350px] gap-8">
+            <div className="grid gap-4 text-center">
+              <div className="flex justify-center mb-2">
+                <div className="bg-primary text-primary-foreground p-2 rounded-lg shadow-lg shadow-primary/20">
+                  <Scale size={24} strokeWidth={3} />
+                </div>
+              </div>
+
+              {/* UPDATED: Bodoni Heading */}
+              <h1 className="text-4xl font-heading font-medium tracking-tight">Welcome back</h1>
+
+              {/* UPDATED: Manrope Light */}
+              <p className="text-balance text-muted-foreground font-sans font-light">
+                Enter your credentials to access the terminal
+              </p>
+            </div>
+
+            {/* ADDED: noValidate to stop browser bubbles */}
+            <form onSubmit={handleLogin} className="grid gap-5" noValidate>
+              <div className="grid gap-2">
+                {/* UPDATED: Technical Label */}
+                <Label htmlFor="email" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
                   Email Address
-              </Label>
-              {/* UPDATED: Mono Input for "Data Entry" feel + Error Handling */}
-              <Input
-                id="email"
-                type="email"
-                placeholder="architect@firm.com"
-                value={email}
-                onChange={(e) => {
+                </Label>
+                {/* UPDATED: Mono Input for "Data Entry" feel + Error Handling */}
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="architect@firm.com"
+                  value={email}
+                  onChange={(e) => {
                     setEmail(e.target.value);
                     // Clear error on type
                     if (errors.email) setErrors(prev => ({ ...prev, email: "" }));
-                }}
-                className={cn(
+                  }}
+                  className={cn(
                     "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
                     errors.email && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
-                )}
-              />
-              {/* Custom Error Message */}
-              {errors.email && (
+                  )}
+                />
+                {/* Custom Error Message */}
+                {errors.email && (
                   <p className="text-[10px] font-mono text-red-500 flex items-center gap-1 animate-in slide-in-from-top-1 fade-in">
-                      <AlertCircle size={10} /> {errors.email}
+                    <AlertCircle size={10} /> {errors.email}
                   </p>
-              )}
-            </div>
-            
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
-                    Password
-                </Label>
-                <Link href="/forgot-pass" className="text-[10px] uppercase tracking-wider underline text-muted-foreground hover:text-primary font-medium">
-                  Recover Access?
-                </Link>
+                )}
               </div>
-              <Input 
-                id="password" 
-                type="password" 
-                value={password}
-                onChange={(e) => {
+
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
+                    Password
+                  </Label>
+                  <Link href="/forgot-pass" className="text-[10px] uppercase tracking-wider underline text-muted-foreground hover:text-primary font-medium">
+                    Recover Access?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
                     setPassword(e.target.value);
                     // Clear error on type
                     if (errors.password) setErrors(prev => ({ ...prev, password: "" }));
-                }}
-                className={cn(
+                  }}
+                  className={cn(
                     "font-mono text-sm bg-neutral-50 dark:bg-neutral-900 border-border/60 focus-visible:ring-1 focus-visible:ring-primary/50",
                     errors.password && "border-red-500 focus-visible:ring-red-500 bg-red-50/10"
-                )}
-              />
-              {/* Custom Error Message */}
-              {errors.password && (
+                  )}
+                />
+                {/* Custom Error Message */}
+                {errors.password && (
                   <p className="text-[10px] font-mono text-red-500 flex items-center gap-1 animate-in slide-in-from-top-1 fade-in">
-                      <AlertCircle size={10} /> {errors.password}
+                    <AlertCircle size={10} /> {errors.password}
                   </p>
-              )}
-            </div>
+                )}
+              </div>
 
-            {/* UPDATED: Technical Button */}
-            <Button type="submit" className="w-full h-10 font-sans uppercase tracking-widest text-xs font-semibold" disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Access Dashboard"}
-            </Button>
-          </form>
+              {/* UPDATED: Technical Button */}
+              <Button type="submit" className="w-full h-10 font-sans uppercase tracking-widest text-xs font-semibold" disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Access Dashboard"}
+              </Button>
+            </form>
 
             {/* Social Divider */}
             <div className="relative my-2">
@@ -181,39 +193,40 @@ export default function LoginPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-               <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><GoogleIcon className="h-4 w-4" /></Button>
-               <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><FacebookIcon className="h-4 w-4 text-[#1877F2]" /></Button>
-               <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><MicrosoftIcon className="h-4 w-4" /></Button>
+              <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><GoogleIcon className="h-4 w-4" /></Button>
+              <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><FacebookIcon className="h-4 w-4 text-[#1877F2]" /></Button>
+              <Button variant="outline" className="w-full border-border/60 hover:bg-neutral-50 dark:hover:bg-neutral-900"><MicrosoftIcon className="h-4 w-4" /></Button>
             </div>
-          
-          <div className="mt-2 text-center text-sm font-sans font-light text-muted-foreground">
-            No active license? <Link href="/signup" className="underline font-medium hover:text-primary underline-offset-4">Register Firm</Link>
+
+            <div className="mt-2 text-center text-sm font-sans font-light text-muted-foreground">
+              No active license? <Link href="/signup" className="underline font-medium hover:text-primary underline-offset-4">Register Firm</Link>
+            </div>
+          </div>
+        </SpotlightCard>
+
+        {/* RIGHT SIDE - Visuals */}
+        <div className="hidden bg-zinc-950 lg:flex flex-col relative justify-center items-center text-white p-12 border-l border-zinc-800">
+          <div className="absolute inset-0 z-0 opacity-20" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM22.485 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 22.485l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 22.485l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 54.627l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 54.627l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM54.627 60L53.8 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828zM22.485 60L21.657 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828z' fill='%23FFF' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E")` }}></div>
+          <div className="z-10 max-w-lg text-left">
+            <div className="mb-8 inline-block rounded-full bg-white/5 border border-white/10 px-3 py-1 text-[10px] font-mono tracking-widest backdrop-blur-sm text-zinc-300">
+              SYSTEM V1.0 // ONLINE
+            </div>
+
+            {/* UPDATED: Bodoni Heading for Typewriter */}
+            <h2 className="text-3xl font-heading font-medium tracking-tight sm:text-4xl mb-8 min-h-[160px] leading-tight text-zinc-100">
+              <TypewriterText key={currentMsgIndex} text={MESSAGES[currentMsgIndex]} delay={0.1} />
+            </h2>
+
+            <p className="text-zinc-400 max-w-md text-lg leading-relaxed font-sans font-light">
+              Rule VII Architect is designed to assist professionals in checking compliance against Philippine Building Laws.
+            </p>
+          </div>
+          <div className="absolute bottom-8 left-12 text-zinc-600 text-[10px] font-mono tracking-widest uppercase">
+            RIVERA // TAGUIG, PH
           </div>
         </div>
       </div>
-
-      {/* RIGHT SIDE - Visuals */}
-      <div className="hidden bg-zinc-950 lg:flex flex-col relative justify-center items-center text-white p-12 border-l border-zinc-800">
-         <div className="absolute inset-0 z-0 opacity-20" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM22.485 0l.83.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 22.485l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 22.485l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM0 54.627l.828.83-1.415 1.415-.828-.828-.828.828L-1.415 54.627l.828-.828-.828-.828 1.415-1.415.828.828.828-.828 1.415 1.415-.828.828zM54.627 60L53.8 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828zM22.485 60L21.657 59.17l1.415-1.415.828.828.828-.828 1.415 1.415-.828.828.828.828-1.415 1.415-.828-.828-.828.828-1.415-1.415.828-.828z' fill='%23FFF' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E")` }}></div>
-         <div className="z-10 max-w-lg text-left">
-            <div className="mb-8 inline-block rounded-full bg-white/5 border border-white/10 px-3 py-1 text-[10px] font-mono tracking-widest backdrop-blur-sm text-zinc-300">
-                SYSTEM V1.0 // ONLINE
-            </div>
-            
-            {/* UPDATED: Bodoni Heading for Typewriter */}
-            <h2 className="text-3xl font-heading font-medium tracking-tight sm:text-4xl mb-8 min-h-[160px] leading-tight text-zinc-100">
-               <TypewriterText key={currentMsgIndex} text={MESSAGES[currentMsgIndex]} delay={0.1}/>
-            </h2>
-            
-            <p className="text-zinc-400 max-w-md text-lg leading-relaxed font-sans font-light">
-                Rule VII Architect is designed to assist professionals in checking compliance against Philippine Building Laws.
-            </p>
-         </div>
-         <div className="absolute bottom-8 left-12 text-zinc-600 text-[10px] font-mono tracking-widest uppercase">
-            RIVERA // TAGUIG, PH
-         </div>
-      </div>
-    </div>
+    </PageTransition>
   );
 }
 

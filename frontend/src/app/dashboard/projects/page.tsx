@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 // Use shared supabase client to avoid multiple instances
 import { supabase } from '@/lib/supabase';
 import {
@@ -31,6 +32,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+// Dynamic imports for ReactBits components
+const Squares = dynamic(() => import('@/components/ui/Squares'), {
+    ssr: false
+});
+const BlurFade = dynamic(() => import('@/components/ui/BlurFade'), {
+    ssr: false
+});
+const Shimmer = dynamic(() => import('@/components/ui/Shimmer'), {
+    ssr: false
+});
 
 // --- 1. DEFINE TYPES ---
 interface Project {
@@ -310,6 +322,15 @@ export default function ProjectsPage() {
 
     return (
         <div className="flex-1 flex flex-col h-screen bg-neutral-50/40 dark:bg-neutral-950 overflow-hidden relative">
+            {/* Squares Background */}
+            <Squares
+                direction="diagonal"
+                speed={0.5}
+                squareSize={60}
+                borderColor="rgba(100, 100, 100, 0.15)"
+                hoverFillColor="rgba(100, 100, 100, 0.05)"
+                className="absolute inset-0 pointer-events-none blur-sm"
+            />
 
             {/* 1. HEADER */}
             <div className="px-8 py-6 border-b border-border/40 flex items-center justify-between bg-background/50 backdrop-blur-sm sticky top-0 z-10">
@@ -320,7 +341,7 @@ export default function ProjectsPage() {
                         </Button>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-heading font-semibold text-foreground">My Projects</h1>
+                        <h1 className="text-3xl font-heading font-bold text-foreground">My Projects</h1>
                         <p className="text-sm text-muted-foreground mt-0.5">Manage your analysis contexts and uploaded plans.</p>
                     </div>
                 </div>
@@ -343,11 +364,7 @@ export default function ProjectsPage() {
 
                     {/* CONDITIONAL RENDER: Loading vs Empty vs List */}
                     {isLoading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="h-[280px] rounded-xl bg-muted/20 animate-pulse border border-border/50" />
-                            ))}
-                        </div>
+                        <Shimmer rows={6} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" />
                     ) : projects.length === 0 ? (
 
                         /* --- HERO EMPTY STATE (Your New Design) --- */
@@ -386,14 +403,15 @@ export default function ProjectsPage() {
 
                             {/* Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
-                                {projects.map((project) => (
-                                    <ProjectCard
-                                        key={project.id}
-                                        project={project}
-                                        onDelete={() => handleDelete(project.id)}
-                                        onEdit={() => openEditModal(project)}
-                                        onApprove={() => handleApprove(project.id)}
-                                    />
+                                {projects.map((project, index) => (
+                                    <BlurFade key={project.id} delay={index * 0.05}>
+                                        <ProjectCard
+                                            project={project}
+                                            onDelete={() => handleDelete(project.id)}
+                                            onEdit={() => openEditModal(project)}
+                                            onApprove={() => handleApprove(project.id)}
+                                        />
+                                    </BlurFade>
                                 ))}
 
                                 {/* Ghost Card */}
@@ -414,23 +432,28 @@ export default function ProjectsPage() {
 
             {/* 3. SHARED MODAL (For Create AND Edit) */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="w-full max-w-md bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-background border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
                         {/* Modal Header */}
-                        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/30">
+                        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-gradient-to-r from-muted/50 to-muted/30">
                             {/* Dynamic Title */}
-                            <h3 className="font-semibold text-lg">
+                            <h3 className="font-bold text-lg">
                                 {editingProject ? "Edit Project" : "New Project"}
                             </h3>
-                            <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="h-8 w-8 rounded-full">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsModalOpen(false)}
+                                className="h-8 w-8 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-500 transition-colors"
+                            >
                                 <X className="w-4 h-4" />
                             </Button>
                         </div>
 
                         {/* Modal Form */}
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-muted-foreground">Project Name</label>
+                                <label className="text-sm font-semibold text-foreground">Project Name</label>
                                 <Input
                                     placeholder="e.g. Taguig Residential Tower"
                                     required

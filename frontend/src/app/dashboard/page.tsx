@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { supabase } from '@/lib/supabase';
 import {
     ArrowUpRight,
@@ -21,6 +22,20 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+
+// Dynamic imports for ReactBits components
+const AnimatedCounter = dynamic(() => import('@/components/ui/AnimatedCounter'), {
+    ssr: false
+});
+const BlurFade = dynamic(() => import('@/components/ui/BlurFade'), {
+    ssr: false
+});
+const Shimmer = dynamic(() => import('@/components/ui/Shimmer'), {
+    ssr: false
+});
+const Squares = dynamic(() => import('@/components/ui/Squares'), {
+    ssr: false
+});
 
 // 1. Define the Interface
 interface Project {
@@ -95,24 +110,37 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="flex min-h-screen bg-neutral-50/40 dark:bg-neutral-950 text-foreground font-sans selection:bg-primary/10">
+        <div className="flex min-h-screen bg-neutral-50/40 dark:bg-neutral-950 text-foreground font-sans selection:bg-primary/10 relative overflow-hidden">
+            {/* Animated Squares Background */}
+            <Squares
+                direction="diagonal"
+                speed={0.5}
+                squareSize={60}
+                borderColor="rgba(100, 100, 100, 0.15)"
+                hoverFillColor="rgba(100, 100, 100, 0.05)"
+                className="absolute inset-0 pointer-events-none blur-sm"
+            />
+
             <Sidebar />
 
             <div className="flex-1 flex flex-col relative">
                 <Header />
 
-                <main className="flex-1 p-8 lg:p-12 space-y-12 overflow-y-auto">
+                <main className="flex-1 p-6 lg:p-8 space-y-6 overflow-hidden flex flex-col">
 
                     {/* WELCOME SECTION */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-border/40">
-                        <div>
-                            <div className="text-[10px] font-mono text-muted-foreground tracking-widest mb-3 flex items-center gap-2">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-border/40">
+                        <div className="space-y-2">
+                            <div className="text-[10px] font-mono text-muted-foreground tracking-widest flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500/50 animate-pulse"></span>
                                 SYSTEM ACTIVE &mdash; {currentDate}
                             </div>
-                            <h2 className="text-4xl md:text-5xl font-heading font-medium tracking-tight text-foreground">
+                            <h2 className="text-3xl md:text-4xl font-heading font-bold tracking-tight text-foreground">
                                 Project <span className="italic text-muted-foreground font-light">Overview</span>
                             </h2>
+                            <p className="text-xs text-muted-foreground max-w-xl font-sans">
+                                Monitor your active projects, track compliance alerts, and manage your analysis quota.
+                            </p>
                         </div>
 
                         <div className="flex items-center gap-3">
@@ -127,7 +155,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* METRIC GRID */}
-                    <div className="grid gap-6 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-3">
                         <TechnicalCard
                             label="Active Projects"
                             value={isLoading ? "-" : projects.length.toString()}
@@ -155,30 +183,32 @@ export default function DashboardPage() {
                     </div>
 
                     {/* RECENT PROJECTS TABLE */}
-                    <section className="space-y-6">
-                        <div className="flex items-center justify-between px-1">
-                            <h3 className="text-sm font-sans font-medium uppercase tracking-widest text-muted-foreground/80">
+                    <section className="space-y-4 flex-1 flex flex-col min-h-0">
+                        <div className="flex flex-col gap-1 px-1">
+                            <h3 className="text-xl font-heading font-semibold tracking-tight text-foreground">
                                 Recent Analysis
                             </h3>
-                            <Link href="/dashboard/projects" className="text-xs font-mono text-primary hover:underline underline-offset-4 decoration-primary/30 transition-all">
-                                VIEW_ALL_PROJECTS &rarr;
-                            </Link>
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground font-sans">
+                                    Your latest project submissions and compliance checks
+                                </p>
+                                <Link href="/dashboard/projects" className="text-xs font-mono text-primary hover:underline underline-offset-4 decoration-primary/30 transition-all">
+                                    VIEW_ALL_PROJECTS &rarr;
+                                </Link>
+                            </div>
                         </div>
 
-                        <div className="border border-border/40 rounded-sm bg-background/50 backdrop-blur-sm shadow-sm overflow-hidden min-h-[200px]">
-                            <div className="hidden md:grid grid-cols-12 px-6 py-4 border-b border-border/40 bg-neutral-100/30 dark:bg-neutral-900/30 text-[10px] uppercase tracking-widest font-medium text-muted-foreground/70">
+                        <div className="border border-border/40 rounded-sm bg-background/50 backdrop-blur-sm shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
+                            <div className="hidden md:grid grid-cols-12 px-6 py-3 border-b border-border/40 bg-neutral-100/30 dark:bg-neutral-900/30 text-[10px] uppercase tracking-widest font-medium text-muted-foreground/70">
                                 <div className="col-span-5 pl-2">Project Identity</div>
                                 <div className="col-span-3">Project Progress</div>
                                 <div className="col-span-2 text-center">Priority</div>
                                 <div className="col-span-2 text-right pr-2">Last Update</div>
                             </div>
 
-                            <div className="divide-y divide-border/30">
+                            <div className="divide-y divide-border/30 overflow-y-auto max-h-[300px]">
                                 {isLoading ? (
-                                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
-                                        <span className="text-xs font-mono">LOADING_DATA...</span>
-                                    </div>
+                                    <Shimmer rows={5} />
                                 ) : projects.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                         <FileBox className="w-8 h-8 mb-2 opacity-20" />
@@ -188,12 +218,13 @@ export default function DashboardPage() {
                                         </Link>
                                     </div>
                                 ) : (
-                                    projects.slice(0, 5).map((project) => (
-                                        <ProjectRow
-                                            key={project.id}
-                                            project={project}
-                                            onClick={() => setSelectedProject(project)}
-                                        />
+                                    projects.slice(0, 5).map((project, index) => (
+                                        <BlurFade key={project.id} delay={index * 0.05}>
+                                            <ProjectRow
+                                                project={project}
+                                                onClick={() => setSelectedProject(project)}
+                                            />
+                                        </BlurFade>
                                     ))
                                 )}
                             </div>
@@ -213,21 +244,35 @@ export default function DashboardPage() {
 
 // --- SUB-COMPONENTS ---
 
-// 1. Technical Card (Unchanged mostly, just logic passed in props)
+// 1. Technical Card (Enhanced for impact)
 function TechnicalCard({ label, value, subValue, icon: Icon, trend, highlight, alert }: any) {
+    // Parse value to number for AnimatedCounter
+    const numericValue = value === "-" ? 0 : parseInt(value) || 0;
+    const isLoading = value === "-";
+
     return (
         <div className={cn(
-            "group relative p-8 rounded-sm border transition-all duration-500 ease-out",
-            "bg-background/80 hover:bg-background hover:shadow-xl hover:shadow-neutral-200/20 dark:hover:shadow-neutral-900/30 hover:-translate-y-1",
-            highlight ? "border-primary/20" : "border-border/40"
+            "group relative p-6 rounded-lg border transition-all duration-500 ease-out",
+            "bg-gradient-to-br from-background via-background to-background/80",
+            "hover:shadow-2xl hover:-translate-y-2",
+            highlight ? "border-primary/30 shadow-lg shadow-primary/5" : "border-border/40 hover:border-border/60"
         )}>
-            <div className={cn("absolute top-0 right-0 w-8 h-8 border-t border-r transition-colors", highlight ? "border-primary/30" : "border-transparent group-hover:border-border/60")} />
+            {/* Corner accent */}
+            <div className={cn(
+                "absolute top-0 right-0 w-10 h-10 border-t-2 border-r-2 rounded-tr-lg transition-colors",
+                highlight ? "border-primary/40" : "border-transparent group-hover:border-border/60"
+            )} />
 
             <div className="flex justify-between items-start mb-6">
-                <div className={cn("p-2.5 rounded-sm transition-colors", highlight ? "bg-primary/10 text-primary" : "bg-neutral-100 dark:bg-neutral-800 text-muted-foreground group-hover:text-primary")}>
-                    <Icon className="h-5 w-5" strokeWidth={1.2} />
+                <div className={cn(
+                    "p-2.5 rounded-lg transition-all duration-300",
+                    highlight
+                        ? "bg-primary/10 text-primary shadow-lg shadow-primary/20"
+                        : "bg-neutral-100 dark:bg-neutral-800 text-muted-foreground group-hover:text-primary"
+                )}>
+                    <Icon className="h-5 w-5" strokeWidth={1.5} />
                 </div>
-                {alert && <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]" />}
+                {alert && <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.6)]" />}
             </div>
 
             <div className="space-y-2">
@@ -236,17 +281,20 @@ function TechnicalCard({ label, value, subValue, icon: Icon, trend, highlight, a
                 </div>
                 <div className="flex items-baseline gap-3">
                     <span className="text-5xl font-mono font-light tracking-tighter text-foreground">
-                        {value}
+                        {isLoading ? "-" : <AnimatedCounter value={numericValue} />}
                     </span>
-                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                    <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
                         {subValue}
                     </span>
                 </div>
             </div>
 
             <div className="mt-6 pt-4 border-t border-border/30 flex items-center gap-2">
-                <div className={cn("text-xs font-medium flex items-center gap-1.5", alert ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500")}>
-                    <span className={cn("w-1 h-1 rounded-full", alert ? "bg-amber-500" : "bg-emerald-500")} />
+                <div className={cn(
+                    "text-xs font-medium flex items-center gap-2",
+                    alert ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+                )}>
+                    <span className={cn("w-1.5 h-1.5 rounded-full", alert ? "bg-amber-500" : "bg-emerald-500")} />
                     {trend}
                 </div>
             </div>
