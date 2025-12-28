@@ -2,16 +2,32 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { User, Scale, FileText, Image as ImageIcon, Pencil, Copy, Check, Plus } from "lucide-react";
+import { User, Scale, FileText, Image as ImageIcon, Pencil, Copy, Check, Plus, X, RefreshCw } from "lucide-react";
 import { WorkspaceMessage } from "@/types/workspace";
 import { Button } from "@/components/ui/button";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface MessageBubbleProps extends WorkspaceMessage {
   onEdit?: (content: string) => void;
   onAddToDraft?: (content: string) => void;
+  onApproveRevision?: (sectionId: string, content: string) => void;
+  onReviseAgain?: (sectionId: string) => void;
+  onRejectRevision?: (messageId: string) => void;
 }
 
-export default function MessageBubble({ role, content, attachment, onEdit, onAddToDraft }: MessageBubbleProps) {
+export default function MessageBubble({
+  id,
+  role,
+  content,
+  attachment,
+  revisionData,
+  onEdit,
+  onAddToDraft,
+  onApproveRevision,
+  onReviseAgain,
+  onRejectRevision
+}: MessageBubbleProps) {
   const isUser = role === "user";
   const isSystem = role === "system";
   const [copied, setCopied] = useState(false);
@@ -55,7 +71,7 @@ export default function MessageBubble({ role, content, attachment, onEdit, onAdd
         </div>
       )}
 
-      <div className={cn("flex flex-col max-w-[65%]", isUser ? "items-end" : "items-start")}>
+      <div className={cn("flex flex-col max-w-[75%]", isUser ? "items-end" : "items-start")}>
 
         {/* ATTACHMENT */}
         {attachment && (
@@ -84,15 +100,99 @@ export default function MessageBubble({ role, content, attachment, onEdit, onAdd
         {content && (
           <div
             className={cn(
-              "px-4 py-3 text-sm leading-relaxed",
+              "px-4 py-3 leading-relaxed",
               isUser
-                ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm"
+                ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm text-sm"
                 : "bg-card border border-border text-foreground rounded-2xl rounded-tl-sm shadow-sm"
             )}
           >
-            <div className="whitespace-pre-wrap">
-              {content}
-            </div>
+            {isUser ? (
+              <div className="whitespace-pre-wrap">{content}</div>
+            ) : (
+              <div className="markdown-body">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    // Headers
+                    h1: ({ children }) => (
+                      <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0 text-foreground">{children}</h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-lg font-semibold mb-2 mt-3 first:mt-0 text-foreground">{children}</h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="text-base font-semibold mb-2 mt-3 first:mt-0 text-foreground">{children}</h3>
+                    ),
+                    // Paragraphs
+                    p: ({ children }) => (
+                      <p className="text-sm leading-relaxed mb-3 last:mb-0 text-foreground">{children}</p>
+                    ),
+                    // Lists
+                    ul: ({ children }) => (
+                      <ul className="list-disc list-outside ml-4 mb-3 space-y-1">{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="list-decimal list-outside ml-4 mb-3 space-y-1">{children}</ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="text-sm text-foreground">{children}</li>
+                    ),
+                    // Bold & Italic
+                    strong: ({ children }) => (
+                      <strong className="font-semibold text-foreground">{children}</strong>
+                    ),
+                    em: ({ children }) => (
+                      <em className="italic">{children}</em>
+                    ),
+                    // Code
+                    code: ({ className, children }) => {
+                      const isInline = !className;
+                      return isInline ? (
+                        <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono text-primary">{children}</code>
+                      ) : (
+                        <code className="block bg-muted/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">{children}</code>
+                      );
+                    },
+                    pre: ({ children }) => (
+                      <pre className="bg-muted/50 rounded-lg p-3 mb-3 overflow-x-auto">{children}</pre>
+                    ),
+                    // Tables - Responsive and fits container
+                    table: ({ children }) => (
+                      <div className="overflow-x-auto my-3 rounded-lg border border-border">
+                        <table className="w-full text-sm">{children}</table>
+                      </div>
+                    ),
+                    thead: ({ children }) => (
+                      <thead className="bg-muted/50 border-b border-border">{children}</thead>
+                    ),
+                    tbody: ({ children }) => (
+                      <tbody className="divide-y divide-border">{children}</tbody>
+                    ),
+                    tr: ({ children }) => (
+                      <tr className="hover:bg-muted/20 transition-colors">{children}</tr>
+                    ),
+                    th: ({ children }) => (
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-foreground">{children}</th>
+                    ),
+                    td: ({ children }) => (
+                      <td className="px-3 py-2 text-sm text-foreground">{children}</td>
+                    ),
+                    // Blockquote
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-4 border-primary/50 pl-4 py-1 my-3 italic text-muted-foreground">{children}</blockquote>
+                    ),
+                    // Links
+                    a: ({ href, children }) => (
+                      <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
+                    ),
+                    // Horizontal rule
+                    hr: () => <hr className="border-border my-4" />,
+                  }}
+                >
+                  {content}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
         )}
 
@@ -122,7 +222,7 @@ export default function MessageBubble({ role, content, attachment, onEdit, onAdd
             </Button>
           )}
 
-          {!isUser && onAddToDraft && (
+          {!isUser && onAddToDraft && !revisionData && (
             <Button
               variant="ghost"
               size="sm"
@@ -138,6 +238,45 @@ export default function MessageBubble({ role, content, attachment, onEdit, onAdd
               {addedToDraft ? <Check className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
               {addedToDraft ? "Added" : "Add to Draft"}
             </Button>
+          )}
+
+          {/* Revision Actions */}
+          {revisionData && revisionData.status === 'pending' && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRejectRevision?.(id)}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3 h-3 mr-1" /> Reject
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onReviseAgain?.(revisionData.sectionId)}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" /> Revise
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onApproveRevision?.(revisionData.sectionId, content)}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+              >
+                <Check className="w-3 h-3 mr-1" /> Approve
+              </Button>
+            </>
+          )}
+
+          {revisionData && revisionData.status !== 'pending' && (
+            <span className={cn(
+              "text-xs ml-1",
+              revisionData.status === 'approved' ? 'text-primary' : 'text-muted-foreground'
+            )}>
+              {revisionData.status === 'approved' ? '✓ Added to section' : '✗ Rejected'}
+            </span>
           )}
         </div>
       </div>

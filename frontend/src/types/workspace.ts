@@ -50,6 +50,13 @@ export interface WorkspaceMessage {
         size: number;
         url: string;
     };
+    // For revision responses
+    revisionData?: {
+        sectionId: string;
+        sectionTitle: string;
+        userInstructions: string;
+        status: 'pending' | 'approved' | 'rejected';
+    };
 }
 
 // NEW: Project Definition

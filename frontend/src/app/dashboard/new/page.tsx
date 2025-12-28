@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Scale, ArrowLeft, X, Menu, Plus, Loader2, Trash2, MoreHorizontal, Star, Search, FolderOpen, MapPin, Paperclip } from "lucide-react";
+import { Scale, ArrowLeft, X, Menu, Plus, Loader2, Trash2, MoreHorizontal, Star, Search, FolderOpen, RefreshCw, Check } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +26,12 @@ import DraftBubble from "@/components/workspace/DraftBubble";
 import MessageBubble from "@/components/chat/MessageBubble";
 import InputArea from "@/components/chat/InputArea";
 import ThoughtStream from "@/components/chat/ThoughtStream";
+import RevisionModal from "@/components/workspace/RevisionModal";
+import RevisionProposalMessage from "@/components/workspace/RevisionProposalMessage";
 
 // Import Types
 import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/workspace";
+import { RevisionProposal } from "@/types/revision";
 
 export default function WorkspacePage() {
     const router = useRouter();
@@ -63,6 +66,9 @@ export default function WorkspacePage() {
     const [editingSection, setEditingSection] = useState<DocumentSection | null>(null);
     const [editForm, setEditForm] = useState({ title: "", content: "" });
     const [revisingSection, setRevisingSection] = useState<DocumentSection | null>(null);
+    const [revisionModalOpen, setRevisionModalOpen] = useState(false);
+    const [isRevisionLoading, setIsRevisionLoading] = useState(false);
+    const [revisionProposals, setRevisionProposals] = useState<RevisionProposal[]>([]);
 
     // Thought Stream State (simplified)
     const [thoughtSteps] = useState<string[]>(["Searching", "Analyzing", "Generating"]);
@@ -74,7 +80,7 @@ export default function WorkspacePage() {
         if (scrollRef.current) {
             scrollRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messages]);
+    }, [messages, revisionProposals]);
 
     // Load project context if project param exists
     useEffect(() => {
@@ -201,8 +207,6 @@ export default function WorkspacePage() {
 
     const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent triggering the select
-
-        // Close the dropdown first
         setOpenMenuId(null);
 
         if (!confirm("Delete this conversation? This cannot be undone.")) return;
@@ -221,7 +225,6 @@ export default function WorkspacePage() {
             await apiClient.chat.deleteConversation(id);
         } catch (error) {
             console.error("Failed to delete conversation:", error);
-            // Refetch history on error to restore state
             const freshHistory = await apiClient.chat.getHistory();
             setHistory(freshHistory);
         }
@@ -240,7 +243,6 @@ export default function WorkspacePage() {
                 const updated = prev.map(h =>
                     h.id === id ? { ...h, is_favorite: result.is_favorite } : h
                 );
-                // Re-sort: favorites first, then by date
                 return updated.sort((a, b) => {
                     if (a.is_favorite && !b.is_favorite) return -1;
                     if (!a.is_favorite && b.is_favorite) return 1;
@@ -265,16 +267,138 @@ export default function WorkspacePage() {
             await apiClient.chat.deleteProposal(id);
         } catch (error) {
             console.error("Failed to delete:", error);
-            // Optionally: revert optimistic update or show toast
         }
     };
 
+    // ===== REVISION WORKFLOW HANDLERS =====
+
+    // Open revision modal
     const handleReviseSection = (section: DocumentSection) => {
-        setRevisingSection(section); // Track which section is being revised
-        const prompt = `I need to revise the section "${section.title}".\n\nCurrent Content:\n"${section.content.slice(0, 500)}..."\n\nChanges needed: `;
-        setInputOverride(prompt);
+        setRevisingSection(section);
+        setRevisionModalOpen(true);
     };
 
+    // Submit revision request from modal
+    const handleSubmitRevision = async (instructions: string) => {
+        if (!revisingSection) return;
+
+        try {
+            setIsRevisionLoading(true);
+
+            const revisionPrompt = `You are an expert architectural compliance reviewer. The user wants to modify a section of their document.
+
+SECTION TITLE: "${revisingSection.title}"
+
+WHAT THE USER WANTS TO ADD/CHANGE:
+${instructions}
+
+CONTEXT (the current content for reference only, do NOT repeat this):
+${revisingSection.content}
+
+YOUR TASK:
+Based on the user's instructions, provide ONLY the NEW or MODIFIED content they requested. 
+
+FORMATTING RULES:
+- Do NOT repeat or summarize what's already in the current content
+- ONLY provide the additions or changes the user asked for
+- Use proper paragraph spacing with line breaks between sections
+- Be specific with code references and standards where applicable
+- If the user asks for a TABLE, format it using markdown table syntax:
+  | Header 1 | Header 2 | Header 3 |
+  |----------|----------|----------|
+  | Data 1   | Data 2   | Data 3   |
+- If the user asks for a LIST, use clean numbered or bulleted lists
+- Use **bold** for emphasis on important terms or code references
+- Include source references in [brackets] where applicable
+
+Provide only the new/revised content:`;
+
+            const token = await getToken();
+            const response = await fetch('http://localhost:8000/api/v1/chat/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: revisionPrompt,
+                    conversation_id: conversationId,
+                    project_id: projectContext?.id
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to get AI revision');
+
+            const data = await response.json();
+
+            // Add as a regular assistant message with revision data attached
+            const revisionMessage: WorkspaceMessage = {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: data.response,
+                timestamp: new Date(),
+                // Include revision data for approve/reject actions
+                revisionData: {
+                    sectionId: revisingSection.id,
+                    sectionTitle: revisingSection.title,
+                    userInstructions: instructions,
+                    status: 'pending' as const
+                }
+            };
+
+            setMessages(prev => [...prev, revisionMessage]);
+            setRevisionModalOpen(false);
+            setRevisingSection(null);
+
+        } catch (error) {
+            console.error('Error revising section:', error);
+            alert('Failed to get AI revision. Please try again.');
+        } finally {
+            setIsRevisionLoading(false);
+        }
+    };
+
+    // Approve revision and APPEND to section (not replace)
+    const handleApproveRevision = (sectionId: string, newContent: string) => {
+        // Append the new content to existing section
+        setSections(prev => prev.map(s =>
+            s.id === sectionId
+                ? {
+                    ...s,
+                    content: s.content + '\n\n' + newContent,
+                    lastUpdated: new Date()
+                }
+                : s
+        ));
+        // Update message status to approved
+        setMessages(prev => prev.map(m =>
+            m.revisionData?.sectionId === sectionId
+                ? { ...m, revisionData: { ...m.revisionData, status: 'approved' as const } }
+                : m
+        ));
+    };
+
+    // Revise again - reopen modal
+    const handleReviseAgain = (sectionId: string) => {
+        const section = sections.find(s => s.id === sectionId);
+        if (section) {
+            setRevisingSection(section);
+            setRevisionModalOpen(true);
+        }
+    };
+
+    // Reject revision
+    const handleRejectRevision = (messageId: string) => {
+        setMessages(prev => prev.map(m =>
+            m.id === messageId && m.revisionData
+                ? { ...m, revisionData: { ...m.revisionData, status: 'rejected' as const } }
+                : m
+        ));
+    };
+
+    // ===== END REVISION WORKFLOW =====
+
+    // STEP 1: Simplified Manual Edit Handler
     const handleEditSection = (section: DocumentSection) => {
         setEditingSection(section);
         setEditForm({ title: section.title, content: section.content });
@@ -660,7 +784,7 @@ export default function WorkspacePage() {
                         <ScrollArea className="flex-1 px-4 lg:px-8">
                             <div className="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-140px)] py-6 pt-14">
 
-                                {messages.length === 0 ? (
+                                {messages.length === 0 && revisionProposals.length === 0 ? (
                                     <div className="flex-1 flex flex-col items-center justify-center pb-20 opacity-90">
                                         <div className="mb-8 relative group cursor-default">
                                             <div className="absolute -inset-2 bg-gradient-to-tr from-primary/20 to-purple-500/20 rounded-3xl blur-lg opacity-40 group-hover:opacity-60 transition duration-500"></div>
@@ -675,6 +799,7 @@ export default function WorkspacePage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4 pb-4">
+                                        {/* Messages with revision actions inline */}
                                         {messages.map((msg) => (
                                             <div key={msg.id}>
                                                 <MessageBubble
@@ -683,8 +808,12 @@ export default function WorkspacePage() {
                                                     content={msg.content}
                                                     timestamp={msg.timestamp}
                                                     attachment={msg.attachment}
+                                                    revisionData={msg.revisionData}
                                                     onEdit={handleEditPrompt}
-                                                    onAddToDraft={msg.role === 'assistant' ? handleAddToDraft : undefined}
+                                                    onAddToDraft={msg.role === 'assistant' && !msg.revisionData ? handleAddToDraft : undefined}
+                                                    onApproveRevision={handleApproveRevision}
+                                                    onReviseAgain={handleReviseAgain}
+                                                    onRejectRevision={handleRejectRevision}
                                                 />
                                                 {msg.proposal && (
                                                     <DraftBubble
@@ -751,6 +880,7 @@ export default function WorkspacePage() {
 
                 {/* --- RIGHT PANEL (DOCUMENT) --- */}
                 <ResizablePanel defaultSize={40} minSize={25} maxSize={70} collapsible={true} collapsedSize={0}>
+                    {/* Step 4: Remove revisingSection from DocumentPanel */}
                     <DocumentPanel
                         sections={sections}
                         onDelete={handleDeleteSection}
@@ -795,6 +925,23 @@ export default function WorkspacePage() {
                     </div>
                 </div>
             )}
+
+            {/* Step 2: Add RevisionModal to JSX */}
+            {/* REVISION MODAL */}
+            <RevisionModal
+                section={revisingSection ? {
+                    id: revisingSection.id,
+                    title: revisingSection.title,
+                    content: revisingSection.content
+                } : null}
+                isOpen={revisionModalOpen}
+                onClose={() => {
+                    setRevisionModalOpen(false);
+                    setRevisingSection(null);
+                }}
+                onSubmit={handleSubmitRevision}
+                isLoading={isRevisionLoading}
+            />
         </div>
     );
 }
