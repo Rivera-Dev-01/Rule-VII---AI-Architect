@@ -133,10 +133,6 @@ Description: {p.get('description', 'No description')}
 
 @router.get("/project/{project_id}/session")
 async def get_project_session(project_id: str, user_data: dict = Depends(verify_token)):
-    """
-    Get existing conversation for a project.
-    Returns conversation_id if exists, null if not.
-    """
     user_id = user_data.get('sub')
     
     try:
