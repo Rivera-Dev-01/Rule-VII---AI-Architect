@@ -284,6 +284,7 @@ const DocumentSectionItem = forwardRef<HTMLDivElement, DocumentSectionItemProps>
           <div className="pl-7">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
+              urlTransform={(url) => url}
               components={{
                 // Headers - Neutral sizes
                 h1: ({ children }) => (
@@ -319,7 +320,7 @@ const DocumentSectionItem = forwardRef<HTMLDivElement, DocumentSectionItemProps>
                         onClick={(e) => {
                           e.preventDefault();
                           if (onLawClick && href) {
-                            onLawClick(href.replace('law:', ''));
+                            onLawClick(decodeURIComponent(href.replace('law:', '')));
                           }
                         }}
                         className="inline-flex items-center mx-0.5 px-1.5 py-0 rounded bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors cursor-pointer border border-primary/20 hover:border-primary/40 no-underline translate-y-[1px]"

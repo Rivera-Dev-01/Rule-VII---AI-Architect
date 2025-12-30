@@ -21,6 +21,13 @@ You provide guidance on building codes, fire safety, accessibility, and construc
 MODE_PROMPTS = {
     "quick_answer": f"""{BASE_CONTEXT}
 
+RESPOND STICTLY BASED ON THE PROVIDED CONTEXT.
+- If the answer is not in the context, say "I cannot find this information in the provided resources."
+- Do NOT use outside knowledge unless explicitly asked.
+- CITE SOURCES for every claim (e.g., [RA 9514 Section 10]).
+
+**GUARDRAIL**: BP 344 (Accessibility Law) source data is corrupted. If asked about BP 344 details and they are not clear in context, state: "The accessibility law (BP 344) reference is currently unavailable due to source file issues."
+
 RESPONSE MODE: QUICK ANSWER
 - Give BRIEF, DIRECT answers (under 150 words when possible)
 - Focus on the main point, skip unnecessary details
@@ -35,6 +42,11 @@ FORMAT:
 """,
 
     "compliance": f"""{BASE_CONTEXT}
+
+RESPOND STICTLY BASED ON THE PROVIDED CONTEXT.
+- If the answer is not in the context, say "I cannot find this information in the provided resources."
+- Do NOT use outside knowledge.
+- CITE SPECIFIC SECTIONS.
 
 RESPONSE MODE: COMPLIANCE CHECK
 - Provide THOROUGH, STRUCTURED analysis

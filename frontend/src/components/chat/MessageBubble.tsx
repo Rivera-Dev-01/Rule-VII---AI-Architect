@@ -118,6 +118,7 @@ export default function MessageBubble({
               <div className="markdown-body">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
+                  urlTransform={(url) => url}
                   components={{
                     // Headers
                     h1: ({ children }) => (
@@ -188,14 +189,27 @@ export default function MessageBubble({
                       <blockquote className="border-l-4 border-primary/50 pl-4 py-1 my-3 italic text-muted-foreground">{children}</blockquote>
                     ),
                     // Links
-                    a: ({ href, children }) => (
-                      <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
-                    ),
+                    a: ({ href, children }) => {
+                      if (href?.startsWith("law:")) {
+                        const citation = decodeURIComponent(href.replace("law:", ""));
+                        return (
+                          <button
+                            onClick={() => onLawClick?.(citation)}
+                            className="text-primary hover:underline font-semibold cursor-pointer"
+                          >
+                            {children}
+                          </button>
+                        );
+                      }
+                      return (
+                        <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>
+                      );
+                    },
                     // Horizontal rule
                     hr: () => <hr className="border-border my-4" />,
                   }}
                 >
-                  {content}
+                  {formatCitations(content)}
                 </ReactMarkdown>
               </div>
             )}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.services.rag_engine import RAGEngine
+from app.core.database import supabase
 
 router = APIRouter()
 rag_engine = RAGEngine()
@@ -17,11 +18,45 @@ class LawLookupResponse(BaseModel):
 async def lookup_law(request: LawLookupRequest):
     """
     Perform a targeted lookup for a specific law or code citation.
-    Uses strict top_k=1 to find the most relevant section.
+    1. Checks 'law_definitions' table for exact match (Structured Library).
+    2. Fallback to RAG Vector Search if not found.
     """
     try:
+        # 1. Try Structured Retrieval (Exact/Clean lookup)
+        try:
+            # A. Priority: Look for "Intro" or "Introduction" if query is a Law Code
+            intro_res = supabase.table("law_definitions").select("*") \
+                .eq("law_code", request.query) \
+                .ilike("section_ref", "%Intro%") \
+                .limit(1).execute()
+
+            if intro_res.data:
+                record = intro_res.data[0]
+                return LawLookupResponse(
+                     content=record['content'],
+                     source=f"{record['law_code']} - {record['section_ref']} (Library)",
+                     relevance=1.0
+                )
+
+            # B. Fallback: Any match (e.g., specific section "Rule VII")
+            structured_res = supabase.table("law_definitions").select("*") \
+                .or_(f"law_code.ilike.%{request.query}%,section_ref.ilike.%{request.query}%") \
+                .limit(1).execute()
+
+            if structured_res.data:
+                record = structured_res.data[0]
+                return LawLookupResponse(
+                     content=record['content'],
+                     source=f"{record['law_code']} - {record['section_ref']} (Library)",
+                     relevance=1.0
+                )
+        except Exception as e:
+            print(f"Structured lookup error: {e}")
+        except Exception as e:
+            print(f"Structured lookup error: {e}")
+
+        # 2. Fallback: Vector Search (Fuzzy)
         # We prioritize high relevance for direct lookups
-        # Use simple 'quick_answer' config or override manually
         results = await rag_engine.search_service.search(
             query=request.query,
             top_k=1,

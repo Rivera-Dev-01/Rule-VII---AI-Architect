@@ -19,7 +19,8 @@ export function formatCitations(text: string): string {
     const patterns = [
         { regex: /(?<!\[)(?:R\.?A\.?|Republic Act)\s+(\d+)(?!\])/gi, prefix: "RA" },
         { regex: /(?<!\[)(?:P\.?D\.?|Presidential Decree)\s+(\d+)(?!\])/gi, prefix: "PD" },
-        { regex: /(?<!\[)(?:B\.?P\.?|Batas Pambansa)\s+(\d+)(?!\])/gi, prefix: "BP" },
+        // BP 344 disabled at user request (bad source encoding)
+        // { regex: /(?<!\[)(?:B\.?P\.?|Batas Pambansa)\s+(\d+)(?!\])/gi, prefix: "BP" },
         { regex: /(?<!\[)(?:Rule)\s+([IVXLCDM]+)(?!\])/gi, prefix: "Rule" }, // Roman numerals
     ];
 
@@ -27,9 +28,9 @@ export function formatCitations(text: string): string {
         formatted = formatted.replace(regex, (match, number) => {
             // Normalize citation for lookup (e.g., "RA 9514")
             const citation = `${prefix} ${number}`;
-            // Return markdown link with custom protocol
+            // Return markdown link with custom protocol, encoding spaces
             // [**Match**](law:Citation)
-            return `[**${match}**](law:${citation})`;
+            return `[**${match}**](law:${encodeURIComponent(citation)})`;
         });
     });
 
