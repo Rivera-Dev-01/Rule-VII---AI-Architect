@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = Field(None, max_length=100)
     project_id: Optional[str] = Field(None, max_length=100)
     mode: str = Field(default="quick_answer")  # quick_answer | plan_draft | compliance
+    reply_context: Optional[str] = Field(None, description="Context from previous message being replied to")
     attachments: Optional[List[AttachmentMetadata]] = Field(None, max_length=5)
     
     @field_validator('message')

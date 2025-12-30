@@ -114,12 +114,29 @@ class RAGEngine:
     Used by the chat endpoint to provide context.
     """
     
-    # Document type priorities per mode
-    MODE_DOCUMENT_PRIORITIES = {
-        "quick_answer": None,  # No filter, search all documents
-        "plan_draft": ["statutory", "procedural", "specialized_planning"],
-        "compliance": ["heuristics", "statutory"]
+    # Comprehensive mode configuration
+    MODE_CONFIG = {
+        "quick_answer": {
+            "top_k": 3,           # Fewer docs for faster, surface-level responses
+            "doc_types": None,    # Search all documents
+            "temperature": 0.3,   # More focused/deterministic
+        },
+        "plan_draft": {
+            "top_k": 5,
+            "doc_types": ["statutory", "procedural", "specialized_planning"],
+            "temperature": 0.4,
+        },
+        "compliance": {
+            "top_k": 8,           # More docs for thorough analysis
+            "doc_types": ["statutory", "heuristics"],
+            "temperature": 0.5,   # Allow more reasoning
+        }
     }
+    
+    @classmethod
+    def get_mode_config(cls, mode: str) -> dict:
+        """Get configuration for a specific mode."""
+        return cls.MODE_CONFIG.get(mode, cls.MODE_CONFIG["quick_answer"])
     
     def __init__(self):
         self.search_service = VectorSearchService()
@@ -128,7 +145,6 @@ class RAGEngine:
         self, 
         query: str, 
         user_id: str,
-        top_k: int = 5,
         mode: str = "quick_answer"
     ) -> List[SourceNode]:
         """
@@ -137,18 +153,19 @@ class RAGEngine:
         Args:
             query: User's question
             user_id: User ID (for future user-specific retrieval)
-            top_k: Number of sources to return
             mode: Chat mode (quick_answer, plan_draft, compliance)
             
         Returns:
             List of SourceNode citations
         """
         try:
-            # Get document type filter based on mode
-            doc_types = self.MODE_DOCUMENT_PRIORITIES.get(mode)
+            # Get mode-specific configuration
+            config = self.get_mode_config(mode)
+            top_k = config["top_k"]
+            doc_types = config["doc_types"]
             
             if settings.DEBUG:
-                logger.debug(f"RAG mode: {mode}, filtering by doc_types: {doc_types}")
+                logger.debug(f"RAG mode: {mode}, top_k: {top_k}, doc_types: {doc_types}")
             
             # Search for similar documents (filtering handled by search service)
             results = await self.search_service.search(query, top_k=top_k, document_types=doc_types)
@@ -187,7 +204,7 @@ class RAGEngine:
         self, 
         query: str, 
         user_id: str,
-        top_k: int = 5
+        mode: str = "quick_answer"
     ) -> str:
         """
         Get formatted context string for LLM.
@@ -195,13 +212,18 @@ class RAGEngine:
         Args:
             query: User's question
             user_id: User ID
-            top_k: Number of sources
+            mode: Chat mode for configuration
             
         Returns:
             Formatted context string with sources
         """
         try:
-            results = await self.search_service.search(query, top_k=top_k)
+            # Use mode-specific configuration
+            config = self.get_mode_config(mode)
+            top_k = config["top_k"]
+            doc_types = config["doc_types"]
+            
+            results = await self.search_service.search(query, top_k=top_k, document_types=doc_types)
             
             if not results:
                 return ""

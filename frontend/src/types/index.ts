@@ -20,6 +20,7 @@ export interface ChatRequest {
     conversation_id?: string;
     project_id?: string;
     mode?: ChatMode;
+    reply_context?: string;
     attachments?: AttachmentMetaData[];
 }
 

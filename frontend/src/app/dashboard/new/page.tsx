@@ -27,7 +27,9 @@ import MessageBubble from "@/components/chat/MessageBubble";
 import InputArea, { ChatMode } from "@/components/chat/InputArea";
 import ThoughtStream from "@/components/chat/ThoughtStream";
 import RevisionModal from "@/components/workspace/RevisionModal";
+
 import RevisionProposalMessage from "@/components/workspace/RevisionProposalMessage";
+import { LawReferenceModal } from "@/components/modals/LawReferenceModal";
 
 // Import Types
 import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/workspace";
@@ -47,6 +49,9 @@ export default function WorkspacePage() {
     // Chat Mode State (persists until user changes it)
     const [chatMode, setChatMode] = useState<ChatMode>("quick_answer");
 
+    // Reply Context State (for Facebook-style reply card)
+    const [replyingTo, setReplyingTo] = useState<{ content: string; preview: string } | null>(null);
+
     // Project Context State
     const [projectContext, setProjectContext] = useState<{
         id: string;
@@ -55,6 +60,12 @@ export default function WorkspacePage() {
         description?: string;
         fileCount: number;
     } | null>(null);
+
+    // Law Citation Modal State
+    const [viewingCitation, setViewingCitation] = useState<string | null>(null);
+    const [citationContent, setCitationContent] = useState<string | null>(null);
+    const [citationSource, setCitationSource] = useState<string | undefined>(undefined);
+    const [loadingCitation, setLoadingCitation] = useState(false);
     const [isLoadingProject, setIsLoadingProject] = useState(false);
 
     // History State
@@ -437,6 +448,19 @@ Provide only the new/revised content:`;
         setInputOverride(content);
     };
 
+    // Reply to specific AI message (Facebook-style card)
+    const handleReplyToMessage = (originalContent: string) => {
+        const preview = originalContent.slice(0, 80).replace(/\n/g, ' ').replace(/#+\s*/g, '');
+        setReplyingTo({
+            content: originalContent,
+            preview: preview + (originalContent.length > 80 ? '...' : '')
+        });
+    };
+
+    const handleCancelReply = () => {
+        setReplyingTo(null);
+    };
+
     // Add AI response directly to draft (simple version without proposal structure)
     const handleAddToDraft = async (content: string) => {
         const newSection: DocumentSection = {
@@ -471,6 +495,26 @@ Provide only the new/revised content:`;
         }
     };
 
+    // --- LAW CITATION HANDLING ---
+    const handleLawClick = async (citation: string) => {
+        setViewingCitation(citation);
+        setLoadingCitation(true);
+        setCitationContent(null);
+        setCitationSource(undefined);
+
+        try {
+            // @ts-ignore - Using manual rag lookup not in type definition yet
+            const result = await apiClient.rag.lookup(citation);
+            setCitationContent(result.content);
+            setCitationSource(result.source);
+        } catch (error) {
+            console.error("Error fetching law:", error);
+            setCitationContent(null);
+        } finally {
+            setLoadingCitation(false);
+        }
+    };
+
     // --- THOUGHT STREAM HELPERS ---
     const initializeThoughtStream = useCallback(() => {
         setIsThoughtComplete(false);
@@ -478,10 +522,25 @@ Provide only the new/revised content:`;
     }, []);
 
     // --- MAIN SEND MESSAGE WITH BACKEND ---
-    const handleSendMessage = async (content: string, files: File[], mode: ChatMode) => {
+    const handleSendMessage = async (inputContent: string, files: File[], mode: ChatMode) => {
         setChatMode(mode); // Update persistent mode state
         setInputOverride(""); // Clear override
-        if (!content && files.length === 0) return;
+
+        // Capture reply context
+        const replyContext = replyingTo?.content;
+        const replyPreview = replyingTo?.preview;
+        setReplyingTo(null); // Clear reply stateUi
+
+        // Display content (what user sees) - includes the quote
+        let displayContent = inputContent;
+        if (replyPreview) {
+            displayContent = `[Replying to: "${replyPreview}"]\n\n${inputContent}`;
+        }
+
+        // Search content (what RAG uses) - JUST the input
+        // LLM will get replyContext passed separately
+
+        if (!inputContent && files.length === 0) return;
 
         const requestStartTime = Date.now(); // Track for minimum thinking time
 
@@ -489,7 +548,7 @@ Provide only the new/revised content:`;
         const userMsg: WorkspaceMessage = {
             id: Date.now().toString(),
             role: "user",
-            content: content || (files.length > 0 ? `Uploaded: ${files.map(f => f.name).join(', ')}` : ""),
+            content: displayContent || (files.length > 0 ? `Uploaded: ${files.map(f => f.name).join(', ')}` : ""),
             timestamp: new Date(),
             attachment: files.length > 0 ? {
                 name: files[0].name,  // Show first file in attachment
@@ -509,10 +568,12 @@ Provide only the new/revised content:`;
 
             if (files.length > 0) {
                 // For now, upload only the first file (analyze endpoint supports 1 file)
-                data = await apiClient.analyze.upload(files[0], content);
+                data = await apiClient.analyze.upload(files[0], inputContent);
             } else {
+                // 2. Call Backend
                 data = await apiClient.chat.send({
-                    message: content,
+                    message: inputContent,
+                    reply_context: replyContext, // Send full original message as context
                     conversation_id: conversationId,
                     project_id: projectContext?.id,
                     mode,  // Include chat mode for RAG filtering
@@ -526,7 +587,7 @@ Provide only the new/revised content:`;
                 if (!conversationId) {
                     const newHistoryItem: ChatHistoryItem = {
                         id: data.conversation_id,
-                        title: content.slice(0, 60) + (content.length > 60 ? "..." : ""),
+                        title: inputContent.slice(0, 60) + (inputContent.length > 60 ? "..." : ""),
                         updated_at: new Date().toISOString(),
                         is_favorite: false
                     };
@@ -816,9 +877,12 @@ Provide only the new/revised content:`;
                                                     revisionData={msg.revisionData}
                                                     onEdit={handleEditPrompt}
                                                     onAddToDraft={msg.role === 'assistant' && !msg.revisionData ? handleAddToDraft : undefined}
+                                                    onReply={msg.role === 'assistant' && !msg.revisionData ? handleReplyToMessage : undefined}
                                                     onApproveRevision={handleApproveRevision}
                                                     onReviseAgain={handleReviseAgain}
                                                     onRejectRevision={handleRejectRevision}
+                                                    // Interactive Citations
+                                                    onLawClick={handleLawClick}
                                                 />
                                                 {msg.proposal && (
                                                     <DraftBubble
@@ -876,6 +940,8 @@ Provide only the new/revised content:`;
                                 onSendMessage={handleSendMessage}
                                 disabled={isLoading}
                                 initialValue={inputOverride}
+                                replyingTo={replyingTo}
+                                onCancelReply={handleCancelReply}
                             />
                         </div>
 
@@ -932,21 +998,26 @@ Provide only the new/revised content:`;
                 </div>
             )}
 
-            {/* Step 2: Add RevisionModal to JSX */}
-            {/* REVISION MODAL */}
+            {/* Revision Modal */}
             <RevisionModal
-                section={revisingSection ? {
-                    id: revisingSection.id,
-                    title: revisingSection.title,
-                    content: revisingSection.content
-                } : null}
                 isOpen={revisionModalOpen}
                 onClose={() => {
                     setRevisionModalOpen(false);
                     setRevisingSection(null);
                 }}
+                section={revisingSection}
                 onSubmit={handleSubmitRevision}
                 isLoading={isRevisionLoading}
+            />
+
+            {/* Law Reference Modal */}
+            <LawReferenceModal
+                isOpen={!!viewingCitation}
+                onClose={() => setViewingCitation(null)}
+                citation={viewingCitation || ""}
+                content={citationContent}
+                isLoading={loadingCitation}
+                source={citationSource}
             />
         </div>
     );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, X, FileText, Image as ImageIcon, Mic, ChevronUp, MessageSquare, FileEdit, CheckCircle, ClipboardCheck } from "lucide-react";
+import { Send, Paperclip, X, FileText, Image as ImageIcon, Mic, ChevronUp, MessageSquare, FileEdit, CheckCircle, ClipboardCheck, Reply } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -23,13 +23,21 @@ const MODE_OPTIONS: ModeOption[] = [
   { id: "compliance", label: "Compliance Check", description: "Verify code requirements", icon: <ClipboardCheck className="w-4 h-4" /> },
 ];
 
+// Reply context for showing what message is being replied to
+interface ReplyContext {
+  content: string;
+  preview: string; // First ~50 chars for display
+}
+
 interface InputAreaProps {
   onSendMessage: (content: string, files: File[], mode: ChatMode) => void;
   disabled?: boolean;
   initialValue?: string;
+  replyingTo?: ReplyContext | null;
+  onCancelReply?: () => void;
 }
 
-export default function InputArea({ onSendMessage, disabled, initialValue }: InputAreaProps) {
+export default function InputArea({ onSendMessage, disabled, initialValue, replyingTo, onCancelReply }: InputAreaProps) {
   const [input, setInput] = useState(initialValue || "");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<ChatMode>("quick_answer");
@@ -155,6 +163,25 @@ export default function InputArea({ onSendMessage, disabled, initialValue }: Inp
                 {MAX_FILES - selectedFiles.length} more allowed
               </span>
             )}
+          </div>
+        )}
+
+        {/* REPLY CONTEXT CARD - Facebook-style */}
+        {replyingTo && (
+          <div className="flex items-center gap-2 px-4 py-2 mb-2 bg-muted/50 border border-border rounded-xl animate-in slide-in-from-bottom-2 duration-150">
+            <Reply className="w-4 h-4 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">Replying to</p>
+              <p className="text-sm text-foreground truncate">{replyingTo.preview}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={onCancelReply}
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         )}
 

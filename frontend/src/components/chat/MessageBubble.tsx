@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { User, Scale, FileText, Image as ImageIcon, Pencil, Copy, Check, Plus, X, RefreshCw } from "lucide-react";
+import { User, Scale, FileText, Image as ImageIcon, Pencil, Copy, Check, Plus, X, RefreshCw, Reply } from "lucide-react";
 import { WorkspaceMessage } from "@/types/workspace";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -11,10 +11,14 @@ import remarkGfm from "remark-gfm";
 interface MessageBubbleProps extends WorkspaceMessage {
   onEdit?: (content: string) => void;
   onAddToDraft?: (content: string) => void;
+  onReply?: (content: string) => void;
   onApproveRevision?: (sectionId: string, content: string) => void;
   onReviseAgain?: (sectionId: string) => void;
   onRejectRevision?: (messageId: string) => void;
+  onLawClick?: (citation: string) => void;
 }
+
+import { formatCitations } from "./citation-utils";
 
 export default function MessageBubble({
   id,
@@ -24,9 +28,11 @@ export default function MessageBubble({
   revisionData,
   onEdit,
   onAddToDraft,
+  onReply,
   onApproveRevision,
   onReviseAgain,
-  onRejectRevision
+  onRejectRevision,
+  onLawClick
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const isSystem = role === "system";
@@ -237,6 +243,18 @@ export default function MessageBubble({
             >
               {addedToDraft ? <Check className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
               {addedToDraft ? "Added" : "Add to Draft"}
+            </Button>
+          )}
+
+          {/* Reply to AI Response */}
+          {!isUser && onReply && !revisionData && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+              onClick={() => onReply(content)}
+            >
+              <Reply className="w-3 h-3 mr-1" /> Reply
             </Button>
           )}
 

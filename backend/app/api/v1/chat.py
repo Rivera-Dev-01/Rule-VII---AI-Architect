@@ -105,8 +105,19 @@ Description: {p.get('description', 'No description')}
         except Exception as e:
             logger.error(f"Error fetching project context: {e}")
 
-    # 3. Generate AI response (with project context)
-    ai_result = await llm_engine.generate(chat_request.message, sources, project_context)
+    # 3. Generate AI response (with project context and mode)
+    # 3. Generate AI response (with project context and mode)
+    # If reply_context exists, prepend it to the prompt for the LLM, but RAG already used just the message
+    full_prompt = chat_request.message
+    if chat_request.reply_context:
+        full_prompt = f"{chat_request.reply_context}\n\nUSER FOLLOW-UP: {chat_request.message}"
+
+    ai_result = await llm_engine.generate(
+        full_prompt, 
+        sources, 
+        project_context,
+        mode=chat_request.mode
+    )
 
     # 4. Save AI response to database
     ai_payload = {
