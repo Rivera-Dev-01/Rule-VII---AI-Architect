@@ -66,8 +66,8 @@ async def chat(request: Request, chat_request: ChatRequest, user_data: dict = De
     except Exception as e:
         logger.error(f"Error saving user message: {e}")
 
-    # 2. Get RAG context (mock for now)
-    sources = await rag_engine.retrieve(chat_request.message, user_id)
+    # 2. Get RAG context with mode-based filtering
+    sources = await rag_engine.retrieve(chat_request.message, user_id, mode=chat_request.mode)
 
     # 2.5 Get project context if project_id provided
     project_context = ""

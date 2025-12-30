@@ -4,14 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ChatMode } from "./InputArea";
 
 interface ThoughtStreamProps {
-    steps: string[];
+    steps: any[]; // ThoughtStep[] from parent - we just use internal steps for display
     isComplete: boolean;
+    mode: ChatMode;
 }
 
-// Rule VII branded steps
-const COMPLIANCE_STEPS = ["Scanning NBCP", "Reviewing IRR", "Compliance Check"];
+// Rule VII branded steps - different per mode
+const MODE_STEPS: Record<ChatMode, string[]> = {
+    quick_answer: ["Scanning NBCP", "Reviewing IRR", "Generating Response"],
+    plan_draft: ["Analyzing Request", "Gathering Provisions", "Drafting Plan"],
+    compliance: ["Scanning NBCP", "Reviewing IRR", "Checking Compliance"]
+};
 
 interface FocusRect {
     x: number;
@@ -20,25 +26,42 @@ interface FocusRect {
     height: number;
 }
 
-export default function ThoughtStream({ steps, isComplete }: ThoughtStreamProps) {
+export default function ThoughtStream({ steps, isComplete, mode }: ThoughtStreamProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [cycleComplete, setCycleComplete] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const stepRefs = useRef<(HTMLSpanElement | null)[]>([]);
     const [focusRect, setFocusRect] = useState<FocusRect>({ x: 0, y: 0, width: 0, height: 0 });
 
+    const displaySteps = MODE_STEPS[mode] || MODE_STEPS.quick_answer;
+
+    // Should this mode loop? Only Compliance loops; Quick Answer and Plan Draft cycle once
+    const shouldLoop = mode === "compliance";
+
     // Auto-cycle through steps
     useEffect(() => {
-        if (isComplete) return;
+        // If complete AND (cycle finished OR no looping needed), stop
+        if (isComplete && (cycleComplete || !shouldLoop)) return;
 
         const interval = setInterval(() => {
             setCurrentIndex(prev => {
-                if (prev >= COMPLIANCE_STEPS.length - 1) return prev;
-                return prev + 1;
+                const nextIndex = prev + 1;
+                if (nextIndex >= displaySteps.length) {
+                    // Completed one cycle
+                    setCycleComplete(true);
+                    if (shouldLoop && !isComplete) {
+                        // Loop back to start for Compliance mode
+                        return 0;
+                    }
+                    // Stay at last step for non-looping modes
+                    return prev;
+                }
+                return nextIndex;
             });
         }, 1200);
 
         return () => clearInterval(interval);
-    }, [isComplete]);
+    }, [isComplete, shouldLoop, cycleComplete, displaySteps.length]);
 
     // Update focus rectangle position
     useEffect(() => {
@@ -80,7 +103,7 @@ export default function ThoughtStream({ steps, isComplete }: ThoughtStreamProps)
                     "bg-muted/30 border border-border/50"
                 )}
             >
-                {COMPLIANCE_STEPS.map((step, index) => {
+                {displaySteps.map((step: string, index: number) => {
                     const isActive = index === currentIndex;
                     const isPast = index < currentIndex;
 

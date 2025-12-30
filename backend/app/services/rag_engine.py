@@ -49,7 +49,8 @@ class VectorSearchService:
         self, 
         query: str, 
         top_k: int = 5,
-        similarity_threshold: float = 0.3
+        similarity_threshold: float = 0.3,
+        document_types: Optional[List[str]] = None
     ) -> List[dict]:
         """
         Search for similar documents in Supabase.
@@ -58,6 +59,7 @@ class VectorSearchService:
             query: The search query
             top_k: Number of results to return
             similarity_threshold: Minimum similarity score
+            document_types: Optional list of document types to filter by
             
         Returns:
             List of matching documents with similarity scores
@@ -67,13 +69,24 @@ class VectorSearchService:
             query_embedding = self.embedding_service.embed(query)
             
             # 2. Search in Supabase using RPC function
-            result = supabase.rpc(
-                "search_documents",
-                {
-                    "query_embedding": query_embedding,
-                    "match_count": top_k
-                }
-            ).execute()
+            # Use filtered search if document_types specified
+            if document_types:
+                result = supabase.rpc(
+                    "search_documents_filtered",
+                    {
+                        "query_embedding": query_embedding,
+                        "match_count": top_k,
+                        "doc_types": document_types
+                    }
+                ).execute()
+            else:
+                result = supabase.rpc(
+                    "search_documents",
+                    {
+                        "query_embedding": query_embedding,
+                        "match_count": top_k
+                    }
+                ).execute()
             
             if not result.data:
                 logger.debug(f"No results found for query: {query[:50]}...")
@@ -101,6 +114,13 @@ class RAGEngine:
     Used by the chat endpoint to provide context.
     """
     
+    # Document type priorities per mode
+    MODE_DOCUMENT_PRIORITIES = {
+        "quick_answer": None,  # No filter, search all documents
+        "plan_draft": ["statutory", "procedural", "specialized_planning"],
+        "compliance": ["heuristics", "statutory"]
+    }
+    
     def __init__(self):
         self.search_service = VectorSearchService()
     
@@ -108,7 +128,8 @@ class RAGEngine:
         self, 
         query: str, 
         user_id: str,
-        top_k: int = 5
+        top_k: int = 5,
+        mode: str = "quick_answer"
     ) -> List[SourceNode]:
         """
         Retrieve relevant documents for a query.
@@ -117,13 +138,20 @@ class RAGEngine:
             query: User's question
             user_id: User ID (for future user-specific retrieval)
             top_k: Number of sources to return
+            mode: Chat mode (quick_answer, plan_draft, compliance)
             
         Returns:
             List of SourceNode citations
         """
         try:
-            # Search for similar documents
-            results = await self.search_service.search(query, top_k=top_k)
+            # Get document type filter based on mode
+            doc_types = self.MODE_DOCUMENT_PRIORITIES.get(mode)
+            
+            if settings.DEBUG:
+                logger.debug(f"RAG mode: {mode}, filtering by doc_types: {doc_types}")
+            
+            # Search for similar documents (filtering handled by search service)
+            results = await self.search_service.search(query, top_k=top_k, document_types=doc_types)
             
             if not results:
                 return []

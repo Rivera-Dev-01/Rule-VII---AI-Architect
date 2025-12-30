@@ -24,7 +24,7 @@ import { supabase } from "@/lib/supabase";
 import DocumentPanel from "@/components/workspace/DocumentPanel";
 import DraftBubble from "@/components/workspace/DraftBubble";
 import MessageBubble from "@/components/chat/MessageBubble";
-import InputArea from "@/components/chat/InputArea";
+import InputArea, { ChatMode } from "@/components/chat/InputArea";
 import ThoughtStream from "@/components/chat/ThoughtStream";
 import RevisionModal from "@/components/workspace/RevisionModal";
 import RevisionProposalMessage from "@/components/workspace/RevisionProposalMessage";
@@ -43,6 +43,9 @@ export default function WorkspacePage() {
     const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
     const [conversationId, setConversationId] = useState<string | undefined>(undefined);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Chat Mode State (persists until user changes it)
+    const [chatMode, setChatMode] = useState<ChatMode>("quick_answer");
 
     // Project Context State
     const [projectContext, setProjectContext] = useState<{
@@ -475,7 +478,8 @@ Provide only the new/revised content:`;
     }, []);
 
     // --- MAIN SEND MESSAGE WITH BACKEND ---
-    const handleSendMessage = async (content: string, files: File[]) => {
+    const handleSendMessage = async (content: string, files: File[], mode: ChatMode) => {
+        setChatMode(mode); // Update persistent mode state
         setInputOverride(""); // Clear override
         if (!content && files.length === 0) return;
 
@@ -510,7 +514,8 @@ Provide only the new/revised content:`;
                 data = await apiClient.chat.send({
                     message: content,
                     conversation_id: conversationId,
-                    project_id: projectContext?.id,  // Include project context
+                    project_id: projectContext?.id,
+                    mode,  // Include chat mode for RAG filtering
                 });
             }
 
@@ -834,6 +839,7 @@ Provide only the new/revised content:`;
                                         <ThoughtStream
                                             steps={thoughtSteps}
                                             isComplete={isThoughtComplete}
+                                            mode={chatMode}
                                         />
                                     )}
                                 </AnimatePresence>

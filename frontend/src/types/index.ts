@@ -13,9 +13,21 @@ export interface Source {
     similarity: number
 }
 
+export type ChatMode = "quick_answer" | "plan_draft" | "compliance";
+
 export interface ChatRequest {
-    message: string
-    conversation_id?: string
+    message: string;
+    conversation_id?: string;
+    project_id?: string;
+    mode?: ChatMode;
+    attachments?: AttachmentMetaData[];
+}
+
+export interface AttachmentMetaData {
+    name: string;
+    type: string;
+    size: number;
+    url: string;
 }
 
 export interface ChatResponse {

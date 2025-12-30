@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api-client";
 import { ChatResponse, SavedProposal } from "@/lib/api-types";
 import MessageBubble from "./MessageBubble";
-import InputArea from "./InputArea";
+import InputArea, { ChatMode } from "./InputArea";
 import ThoughtStream from "./ThoughtStream";
 // Import your types
 import { WorkspaceMessage, DraftProposal, ThoughtStep, RAGSource } from "@/types/workspace";
@@ -36,6 +36,9 @@ export default function ChatInterface() {
     const [thoughtSteps, setThoughtSteps] = useState<ThoughtStep[]>([]);
     const [isThoughtComplete, setIsThoughtComplete] = useState(false);
     const [showThoughtStream, setShowThoughtStream] = useState(false);
+
+    // State for Chat Mode (persists until user changes it)
+    const [chatMode, setChatMode] = useState<ChatMode>("quick_answer");
 
     // State for Editing
     const [editingItem, setEditingItem] = useState<SavedProposal | null>(null);
@@ -161,7 +164,9 @@ export default function ChatInterface() {
 
     // --- CHAT LOGIC ---
 
-    const handleSendMessage = async (content: string, files: File[]) => {
+    const handleSendMessage = async (content: string, files: File[], mode: ChatMode) => {
+        // Update persistent mode state
+        setChatMode(mode);
         setInputOverride("");
         if (!content && files.length === 0) return;
 
@@ -186,7 +191,7 @@ export default function ChatInterface() {
             if (file) {
                 data = await apiClient.analyze.upload(file, content);
             } else {
-                data = await apiClient.chat.send({ message: content, conversation_id: conversationId });
+                data = await apiClient.chat.send({ message: content, conversation_id: conversationId, mode });
             }
 
             if (data.conversation_id && !conversationId) setConversationId(data.conversation_id);
@@ -293,7 +298,7 @@ export default function ChatInterface() {
                         <ThoughtStream
                             steps={thoughtSteps}
                             isComplete={isThoughtComplete}
-                            onCollapse={() => setShowThoughtStream(false)}
+                            mode={chatMode}
                         />
                     )}
                     <div ref={scrollRef} />
