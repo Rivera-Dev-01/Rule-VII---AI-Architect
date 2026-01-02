@@ -29,7 +29,6 @@ import ThoughtStream from "@/components/chat/ThoughtStream";
 import RevisionModal from "@/components/workspace/RevisionModal";
 
 import RevisionProposalMessage from "@/components/workspace/RevisionProposalMessage";
-import { LawReferenceModal } from "@/components/modals/LawReferenceModal";
 
 // Import Types
 import { DocumentSection, DraftProposal, WorkspaceMessage } from "@/types/workspace";
@@ -61,11 +60,6 @@ export default function WorkspacePage() {
         fileCount: number;
     } | null>(null);
 
-    // Law Citation Modal State
-    const [viewingCitation, setViewingCitation] = useState<string | null>(null);
-    const [citationContent, setCitationContent] = useState<string | null>(null);
-    const [citationSource, setCitationSource] = useState<string | undefined>(undefined);
-    const [loadingCitation, setLoadingCitation] = useState(false);
     const [isLoadingProject, setIsLoadingProject] = useState(false);
 
     // History State
@@ -495,26 +489,6 @@ Provide only the new/revised content:`;
         }
     };
 
-    // --- LAW CITATION HANDLING ---
-    const handleLawClick = async (citation: string) => {
-        setViewingCitation(citation);
-        setLoadingCitation(true);
-        setCitationContent(null);
-        setCitationSource(undefined);
-
-        try {
-            // @ts-ignore - Using manual rag lookup not in type definition yet
-            const result = await apiClient.rag.lookup(citation);
-            setCitationContent(result.content);
-            setCitationSource(result.source);
-        } catch (error) {
-            console.error("Error fetching law:", error);
-            setCitationContent(null);
-        } finally {
-            setLoadingCitation(false);
-        }
-    };
-
     // --- THOUGHT STREAM HELPERS ---
     const initializeThoughtStream = useCallback(() => {
         setIsThoughtComplete(false);
@@ -610,6 +584,7 @@ Provide only the new/revised content:`;
                 role: "assistant",
                 content: data?.response || "File uploaded successfully. How can I help you with this?",
                 timestamp: new Date(),
+                sources: data?.sources || [],  // Store the actual RAG sources
                 proposal: data?.proposal ? {
                     id: `prop-${Date.now()}`,
                     title: data.proposal.title || "Draft Proposal",
@@ -874,6 +849,7 @@ Provide only the new/revised content:`;
                                                     content={msg.content}
                                                     timestamp={msg.timestamp}
                                                     attachment={msg.attachment}
+                                                    sources={msg.sources}
                                                     revisionData={msg.revisionData}
                                                     onEdit={handleEditPrompt}
                                                     onAddToDraft={msg.role === 'assistant' && !msg.revisionData ? handleAddToDraft : undefined}
@@ -881,8 +857,6 @@ Provide only the new/revised content:`;
                                                     onApproveRevision={handleApproveRevision}
                                                     onReviseAgain={handleReviseAgain}
                                                     onRejectRevision={handleRejectRevision}
-                                                    // Interactive Citations
-                                                    onLawClick={handleLawClick}
                                                 />
                                                 {msg.proposal && (
                                                     <DraftBubble
@@ -1008,16 +982,6 @@ Provide only the new/revised content:`;
                 section={revisingSection}
                 onSubmit={handleSubmitRevision}
                 isLoading={isRevisionLoading}
-            />
-
-            {/* Law Reference Modal */}
-            <LawReferenceModal
-                isOpen={!!viewingCitation}
-                onClose={() => setViewingCitation(null)}
-                citation={viewingCitation || ""}
-                content={citationContent}
-                isLoading={loadingCitation}
-                source={citationSource}
             />
         </div>
     );

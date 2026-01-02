@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { User, Scale, FileText, Image as ImageIcon, Pencil, Copy, Check, Plus, X, RefreshCw, Reply } from "lucide-react";
-import { WorkspaceMessage } from "@/types/workspace";
+import { User, Scale, FileText, Image as ImageIcon, Pencil, Copy, Check, Plus, X, RefreshCw, Reply, ChevronDown, ChevronRight, BookOpen } from "lucide-react";
+import { WorkspaceMessage, RAGSource } from "@/types/workspace";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -15,7 +15,6 @@ interface MessageBubbleProps extends WorkspaceMessage {
   onApproveRevision?: (sectionId: string, content: string) => void;
   onReviseAgain?: (sectionId: string) => void;
   onRejectRevision?: (messageId: string) => void;
-  onLawClick?: (citation: string) => void;
 }
 
 import { formatCitations } from "./citation-utils";
@@ -25,19 +24,20 @@ export default function MessageBubble({
   role,
   content,
   attachment,
+  sources,
   revisionData,
   onEdit,
   onAddToDraft,
   onReply,
   onApproveRevision,
   onReviseAgain,
-  onRejectRevision,
-  onLawClick
+  onRejectRevision
 }: MessageBubbleProps) {
   const isUser = role === "user";
   const isSystem = role === "system";
   const [copied, setCopied] = useState(false);
   const [addedToDraft, setAddedToDraft] = useState(false);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(content);
@@ -190,15 +190,16 @@ export default function MessageBubble({
                     ),
                     // Links
                     a: ({ href, children }) => {
+                      // Law citations - only show icon for actual law codes (RA, PD, BP)
                       if (href?.startsWith("law:")) {
                         const citation = decodeURIComponent(href.replace("law:", ""));
+                        const isLawCode = /^(RA|PD|BP)\s/i.test(citation);
+
                         return (
-                          <button
-                            onClick={() => onLawClick?.(citation)}
-                            className="text-primary hover:underline font-semibold cursor-pointer"
-                          >
+                          <span className="inline-flex items-center gap-0.5 text-primary font-semibold">
+                            {isLawCode && <Scale className="w-3 h-3" />}
                             {children}
-                          </button>
+                          </span>
                         );
                       }
                       return (
@@ -215,6 +216,86 @@ export default function MessageBubble({
             )}
           </div>
         )}
+
+        {/* SOURCES USED - Collapsible */}
+        {!isUser && sources && sources.length > 0 && (() => {
+          // Filter out low relevance (<40%) and sort by similarity (highest first)
+          const filteredSources = sources
+            .filter(s => s.similarity >= 0.4)
+            .sort((a, b) => b.similarity - a.similarity);
+
+          if (filteredSources.length === 0) return null;
+
+          // Helper to clean law code (remove chunk index like "(1)")
+          const cleanLawCode = (code: string) => {
+            return code
+              .replace(/\s*\(\d+\)\s*$/, '')  // Remove "(1)" suffix
+              .replace(/_/g, ' ')              // Replace underscores with spaces
+              .trim();
+          };
+
+          // Helper to truncate section text
+          const truncateSection = (text: string, maxLen = 50) => {
+            if (!text) return '';
+            // Clean up common prefixes
+            let clean = text
+              .replace(/^\[?Reference:\s*/i, '')
+              .replace(/^\[?Section\s*/i, 'Section ')
+              .replace(/\]$/, '');
+            return clean.length > maxLen ? clean.substring(0, maxLen) + '...' : clean;
+          };
+
+          return (
+            <div className="mt-2">
+              <button
+                onClick={() => setSourcesExpanded(!sourcesExpanded)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {sourcesExpanded ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+                <BookOpen className="w-3 h-3" />
+                <span>Sources Used ({filteredSources.length})</span>
+              </button>
+
+              {sourcesExpanded && (
+                <div className="mt-2 space-y-1.5 pl-5">
+                  {filteredSources.map((source, idx) => {
+                    const lawCode = cleanLawCode(source.law_code || source.document.split('.')[0]);
+                    const section = truncateSection(source.section);
+
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 text-xs bg-muted/50 rounded px-2 py-1.5 border border-border/50"
+                      >
+                        {/* Law code with icon */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Scale className="w-3 h-3 text-primary" />
+                          <span className="font-medium text-foreground">{lawCode}</span>
+                        </div>
+
+                        {/* Section (no icon, just text) */}
+                        {section && (
+                          <span className="text-muted-foreground truncate flex-1" title={source.section}>
+                            — {section}
+                          </span>
+                        )}
+
+                        {/* Similarity score */}
+                        <span className="text-muted-foreground shrink-0 tabular-nums">
+                          {Math.round(source.similarity * 100)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ACTIONS */}
         <div className={cn(

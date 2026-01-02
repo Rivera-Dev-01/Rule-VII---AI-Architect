@@ -206,15 +206,66 @@ The RAG system uses pre-ingested building code documents. Data ingestion is done
    - `law_code`: NBCP, FIRE_CODE, BP344, ADA
    - `section_ref`: Specific section references
 
-## 💰 Cost Estimates
+## 💰 Production Cost Estimates
 
-**Development**: Free (using free tiers)
+### Development Phase
+**Total: $0/month** (using free tiers)
 
-**Production (100 users)**:
-- Vercel Hosting: $0-20/month
-- Supabase: $25/month (Pro)
-- Groq API: Pay-per-token (~$10-30/month)
-- Railway: $5-20/month
+---
+
+### Production Phase (Per Month)
+
+#### 🤖 AI/LLM Services
+
+| Service | Purpose | Pricing Model | Est. Cost (100 users) |
+|---------|---------|---------------|----------------------|
+| **Google Gemini API** | LLM (Text generation) | $0.075/1M input, $0.30/1M output tokens | ~$30-80/month |
+| **Google Gemini Vision** | Image/Plan analysis (BYOD) | $0.0025/image | ~$10-30/month |
+| **OpenAI Whisper API** | Voice-to-text (future) | $0.006/minute | ~$20-50/month |
+
+> **Gemini API**: Using Gemini 1.5 Flash for cost efficiency. Pro tier for Deep Thinking mode.
+
+---
+
+#### 🗄️ Database & Storage
+
+| Service | Purpose | Plan | Cost |
+|---------|---------|------|------|
+| **Supabase** | PostgreSQL + pgvector + Auth | Pro | $25/month |
+| **Supabase Storage** | BYOD file uploads | Included in Pro | (included) |
+| **Supabase Realtime** | Chat streaming | Included | (included) |
+
+> **Note**: Supabase Pro includes 8GB database, 250GB bandwidth, 100GB storage.
+
+---
+
+#### 🚀 Deployment & Hosting
+
+| Service | Purpose | Plan | Cost |
+|---------|---------|------|------|
+| **Vercel** | Frontend hosting | Pro | $20/month |
+| **Railway** | Backend (FastAPI) | Hobby/Pro | $5-20/month |
+| **Domain** | Custom domain | Annual | ~$12/year |
+
+---
+
+### 📊 Total Monthly Costs by Scale
+
+| Users | LLM | Database | Hosting | Voice (future) | **Total** |
+|-------|-----|----------|---------|----------------|-----------|
+| 50 | $20-40 | $25 | $25 | $0 | **$70-90** |
+| 100 | $40-80 | $25 | $25 | $20-50 | **$110-180** |
+| 500 | $150-300 | $75 | $50 | $100-200 | **$375-625** |
+| 1000+ | $300-600 | $150+ | $100+ | Custom | **$550-850+** |
+
+---
+
+### 💡 Cost Optimization Tips
+
+1. **Gemini Flash vs Pro**: Use Flash for Quick Answer, Pro for Deep Thinking only
+2. **Caching**: Cache common building code queries to reduce API calls
+3. **Rate limits**: Already implemented (20 req/min) to prevent abuse
+4. **Voice-to-text**: Optional feature, enable only for Pro/Team tiers
 
 ## 🤝 Contributing
 

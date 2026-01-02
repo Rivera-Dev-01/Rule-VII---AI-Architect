@@ -6,6 +6,8 @@ export interface RAGSource {
     page: number;
     section: string;
     similarity: number;
+    content: string;      // Actual chunk content
+    law_code: string;     // Law code (e.g., "RA_9514")
 }
 
 // Thought Stream step for AI processing visualization
@@ -44,6 +46,7 @@ export interface WorkspaceMessage {
     content: string;
     timestamp: Date;
     proposal?: DraftProposal;
+    sources?: RAGSource[];  // Store sources used for this response
     attachment?: {
         name: string;
         type: string;

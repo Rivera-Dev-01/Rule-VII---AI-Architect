@@ -17,10 +17,9 @@ interface DocumentPanelProps {
   onEdit?: (section: DocumentSection) => void;
   onRevise?: (section: DocumentSection) => void;
   revisingSection?: DocumentSection | null;
-  onLawClick?: (citation: string) => void;
 }
 
-export default function DocumentPanel({ sections, onDelete, onEdit, onRevise, revisingSection, onLawClick }: DocumentPanelProps) {
+export default function DocumentPanel({ sections, onDelete, onEdit, onRevise, revisingSection }: DocumentPanelProps) {
   const [dateStr, setDateStr] = useState("");
 
   useEffect(() => {
@@ -166,7 +165,6 @@ export default function DocumentPanel({ sections, onDelete, onEdit, onRevise, re
                     onRevise={onRevise}
                     onEdit={onEdit}
                     isRevising={revisingSection?.id === section.id}
-                    onLawClick={onLawClick} // Pass down to item
                   />
                 ))
               )}
@@ -186,11 +184,10 @@ interface DocumentSectionItemProps {
   onEdit?: (section: DocumentSection) => void;
   onRevise?: (section: DocumentSection) => void;
   isRevising?: boolean;
-  onLawClick?: (citation: string) => void;
 }
 
 const DocumentSectionItem = forwardRef<HTMLDivElement, DocumentSectionItemProps>(
-  function DocumentSectionItem({ section, index, isLast, onDelete, onEdit, onRevise, isRevising = false, onLawClick }, ref) {
+  function DocumentSectionItem({ section, index, isLast, onDelete, onEdit, onRevise, isRevising = false }, ref) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [copied, setCopied] = useState(false);
 
@@ -310,25 +307,18 @@ const DocumentSectionItem = forwardRef<HTMLDivElement, DocumentSectionItemProps>
                 li: ({ children }) => (
                   <li className="text-xs text-muted-foreground leading-relaxed pl-1">{children}</li>
                 ),
-                // Custom Link Renderer for Citations
+                // Links - Law citations are styled text (not clickable)
                 a: ({ node, href, children, ...props }) => {
                   const isLawLink = href?.startsWith('law:');
 
                   if (isLawLink) {
                     return (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (onLawClick && href) {
-                            onLawClick(decodeURIComponent(href.replace('law:', '')));
-                          }
-                        }}
-                        className="inline-flex items-center mx-0.5 px-1.5 py-0 rounded bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors cursor-pointer border border-primary/20 hover:border-primary/40 no-underline translate-y-[1px]"
-                        title="View Law Details"
+                      <span
+                        className="inline-flex items-center mx-0.5 px-1.5 py-0 rounded bg-primary/10 text-primary font-medium border border-primary/20 translate-y-[1px]"
                       >
                         <Scale className="w-2.5 h-2.5 mr-1" />
                         {children}
-                      </button>
+                      </span>
                     );
                   }
 

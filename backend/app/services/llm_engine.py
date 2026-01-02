@@ -21,58 +21,59 @@ You provide guidance on building codes, fire safety, accessibility, and construc
 MODE_PROMPTS = {
     "quick_answer": f"""{BASE_CONTEXT}
 
-RESPOND STICTLY BASED ON THE PROVIDED CONTEXT.
-- If the answer is not in the context, say "I cannot find this information in the provided resources."
-- Do NOT use outside knowledge unless explicitly asked.
-- CITE SOURCES for every claim (e.g., [RA 9514 Section 10]).
-
-**GUARDRAIL**: BP 344 (Accessibility Law) source data is corrupted. If asked about BP 344 details and they are not clear in context, state: "The accessibility law (BP 344) reference is currently unavailable due to source file issues."
-
 RESPONSE MODE: QUICK ANSWER
-- Give BRIEF, DIRECT answers (under 150 words when possible)
-- Focus on the main point, skip unnecessary details
-- Use bullet points for quick scanning
-- Include 1-2 key source references only
-- If more detail is needed, suggest: "For a thorough analysis, try Compliance Check mode."
+You provide BRIEF, DIRECT answers to legal/code questions.
+
+RULES:
+1. Answer in under 200 words when possible
+2. Use bullet points for quick scanning  
+3. CITE sources using exact references from context: [Law Code - Section]
+4. If not in context: "I cannot find this in the provided references."
+5. For complex questions, suggest: "For detailed analysis, try Compliance Check mode."
 
 FORMAT:
 - Start with the direct answer
-- Use **bold** for key terms
-- Keep it scannable and concise
+- **Bold** key terms and numbers
+- 2-3 source citations
 """,
 
     "compliance": f"""{BASE_CONTEXT}
 
-RESPOND STICTLY BASED ON THE PROVIDED CONTEXT.
-- If the answer is not in the context, say "I cannot find this information in the provided resources."
-- Do NOT use outside knowledge.
-- CITE SPECIFIC SECTIONS.
-
 RESPONSE MODE: COMPLIANCE CHECK
-- Provide THOROUGH, STRUCTURED analysis
-- Check against multiple relevant code sections
-- Include detailed citations and cross-references
+You provide STRUCTURED compliance analysis with summary and narrative explanation.
 
-REQUIRED STRUCTURE:
+RULES:
+1. ONLY use information from the KNOWLEDGE BASE CONTEXT provided
+2. If specific requirements are NOT in context, say "Not found in available references"
+3. NEVER make up numbers, dimensions, or requirements
+4. Every requirement MUST cite [Law Code - Section] using exact references from context
+
+OUTPUT STRUCTURE:
+
+## Verdict
+State clearly: ✅ COMPLIANT | ❌ NON-COMPLIANT | ⚠️ NEEDS MORE INFO
+
 ## Summary
-Brief overview of compliance requirements
+2-3 sentences explaining the compliance situation.
 
-## Applicable Codes
-List all relevant codes with sections:
-- **PD 1096** - National Building Code: [specific sections]
-- **RA 9514** - Fire Code: [specific sections]
-- **BP 344** - Accessibility Law: [if applicable]
+## Applicable Requirements
+List the key requirements that apply:
+- **Requirement 1** — [Citation]
+- **Requirement 2** — [Citation]
+- **Requirement 3** — [Citation]
 
-## Requirements Checklist
-☐ Requirement 1 - [Code Reference]
-☐ Requirement 2 - [Code Reference]
-☐ Requirement 3 - [Code Reference]
+## Analysis
+Narrative explanation (3-5 paragraphs):
+- Why the design is/isn't compliant
+- What the user needs to change (if non-compliant)
+- Any related considerations
 
-## Notes & Warnings
-⚠️ Flag any critical requirements or common violations
+## References
+List all codes/sections cited.
 
-## Cross-References
-Related provisions that may apply
+---
+
+⚠️ GUARDRAIL: If the user hasn't provided specific dimensions or design details, ask them to provide more information before giving a verdict.
 """,
 
     "plan_draft": f"""{BASE_CONTEXT}
@@ -80,9 +81,17 @@ Related provisions that may apply
 RESPONSE MODE: PLAN DRAFT
 - Help generate planning documents
 - Structure content for formal documentation
-- Include proper code citations
+- Include proper code citations from provided context only
 - Format for easy copy to official documents
 """
+}
+
+# Max tokens configuration per mode
+MODE_MAX_TOKENS = {
+    "quick_answer": 800,
+    "compliance": 1500,      # Reduced from 2000
+    "plan_draft": 1200,
+    "deep_thinking": 2500,   # Future: comprehensive
 }
 
 # Legacy default prompt (fallback)
@@ -130,8 +139,8 @@ class LLMEngine:
             temperature = mode_config.get("temperature", 0.3)
             system_prompt = MODE_PROMPTS.get(mode, MODE_PROMPTS["quick_answer"])
             
-            # Adjust max_tokens based on mode
-            max_tokens = 800 if mode == "quick_answer" else 2000
+            # Get max_tokens from config
+            max_tokens = MODE_MAX_TOKENS.get(mode, 800)
             
             # 2. Get RAG context from Supabase
             rag_context = await self.rag_engine.get_context(prompt, user_id="", mode=mode)

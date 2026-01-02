@@ -19,8 +19,7 @@ export function formatCitations(text: string): string {
     const patterns = [
         { regex: /(?<!\[)(?:R\.?A\.?|Republic Act)\s+(\d+)(?!\])/gi, prefix: "RA" },
         { regex: /(?<!\[)(?:P\.?D\.?|Presidential Decree)\s+(\d+)(?!\])/gi, prefix: "PD" },
-        // BP 344 disabled at user request (bad source encoding)
-        // { regex: /(?<!\[)(?:B\.?P\.?|Batas Pambansa)\s+(\d+)(?!\])/gi, prefix: "BP" },
+        { regex: /(?<!\[)(?:B\.?P\.?|Batas Pambansa)\s+(\d+)(?!\])/gi, prefix: "BP" },
         { regex: /(?<!\[)(?:Rule)\s+([IVXLCDM]+)(?!\])/gi, prefix: "Rule" }, // Roman numerals
     ];
 

@@ -12,7 +12,15 @@ import {
     Search,
     AlertTriangle,
     FileText,
-    Menu
+    Menu,
+    MessageSquare,
+    Clock,
+    Upload,
+    Headphones,
+    Users,
+    Zap,
+    Sparkles,
+    BookOpen
 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -251,7 +259,7 @@ export default function LandingPage() {
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto items-stretch">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
                         {/* Free Tier */}
                         <SpotlightCard className="rounded-xl" spotlightColor="rgba(255, 255, 255, 0.05)">
                             <Card className="flex flex-col h-full bg-zinc-950/50 border-zinc-800/50 hover:border-zinc-700 transition-colors duration-300">
@@ -259,18 +267,21 @@ export default function LandingPage() {
                                     <div className="w-12 h-12 bg-zinc-900 rounded-lg flex items-center justify-center mb-4">
                                         <Scale size={24} className="text-zinc-400" />
                                     </div>
-                                    <CardTitle className="font-heading text-xl text-white">Starter</CardTitle>
-                                    <CardDescription className="font-sans text-zinc-500">For testing the waters</CardDescription>
+                                    <CardTitle className="font-heading text-xl text-white">Free</CardTitle>
+                                    <CardDescription className="font-sans text-zinc-500">For students & testing</CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-1 space-y-6">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-4xl font-mono font-bold tracking-tighter text-white">$0</span>
-                                        <span className="text-zinc-500 font-mono text-sm">/forever</span>
+                                    <div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-2xl font-mono font-bold text-white">₱</span><span className="text-4xl font-mono font-bold tracking-tighter text-white">0</span>
+                                            <span className="text-zinc-500 font-mono text-sm">/forever</span>
+                                        </div>
                                     </div>
                                     <ul className="space-y-3 text-sm font-sans text-zinc-400">
-                                        <li className="flex gap-3"><Check size={18} className="text-white" /> 10 Queries / Day</li>
-                                        <li className="flex gap-3"><Check size={18} className="text-white" /> Basic NBCP Access</li>
-                                        <li className="flex gap-3 text-zinc-700"><span className="line-through">Project History</span></li>
+                                        <li className="flex gap-3 items-center"><MessageSquare size={16} className="text-zinc-500 shrink-0" /> 20 Queries / Day</li>
+                                        <li className="flex gap-3 items-center"><Zap size={16} className="text-zinc-500 shrink-0" /> Quick Answer Mode</li>
+                                        <li className="flex gap-3 items-center"><Clock size={16} className="text-zinc-500 shrink-0" /> Chat History</li>
+                                        <li className="flex gap-3 items-center text-zinc-600"><AlertTriangle size={16} className="shrink-0" /> No Full RAG Access</li>
                                     </ul>
                                 </CardContent>
                                 <CardFooter>
@@ -281,56 +292,99 @@ export default function LandingPage() {
                             </Card>
                         </SpotlightCard>
 
-                        {/* Monthly Tier */}
-                        <SpotlightCard className="rounded-xl" spotlightColor="rgba(255, 255, 255, 0.1)">
-                            <Card className="flex flex-col h-full bg-zinc-950/80 border-primary/50 shadow-2xl shadow-primary/5">
+                        {/* Basic Tier */}
+                        <SpotlightCard className="rounded-xl" spotlightColor="rgba(255, 255, 255, 0.08)">
+                            <Card className="flex flex-col h-full bg-zinc-950/60 border-zinc-800/60 hover:border-zinc-600 transition-colors duration-300">
                                 <CardHeader>
-                                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                                        <Check size={24} className="text-primary" />
+                                    <div className="w-12 h-12 bg-zinc-800 rounded-lg flex items-center justify-center mb-4">
+                                        <FileText size={24} className="text-zinc-300" />
                                     </div>
-                                    <CardTitle className="font-heading text-xl text-white">Monthly License</CardTitle>
-                                    <CardDescription className="font-sans text-zinc-400">For freelancers</CardDescription>
+                                    <CardTitle className="font-heading text-xl text-white">Basic</CardTitle>
+                                    <CardDescription className="font-sans text-zinc-500">For freelancers</CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-1 space-y-6">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-4xl font-mono font-bold tracking-tighter text-white">$20</span>
-                                        <span className="text-zinc-500 font-mono text-sm">/mo</span>
+                                    <div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-2xl font-mono font-bold text-white">₱</span><span className="text-4xl font-mono font-bold tracking-tighter text-white">1,120</span>
+                                            <span className="text-zinc-500 font-mono text-sm">/mo</span>
+                                        </div>
                                     </div>
                                     <ul className="space-y-3 text-sm font-sans text-zinc-300">
-                                        <li className="flex gap-3"><Check size={18} className="text-primary" /> <strong>Unlimited</strong> Queries</li>
-                                        <li className="flex gap-3"><Check size={18} className="text-primary" /> Full RAG (NBCP + Fire Code)</li>
-                                        <li className="flex gap-3"><Check size={18} className="text-primary" /> Save Chat History</li>
+                                        <li className="flex gap-3 items-center"><MessageSquare size={16} className="text-zinc-400 shrink-0" /> 50 Queries / Day</li>
+                                        <li className="flex gap-3 items-center"><BookOpen size={16} className="text-zinc-400 shrink-0" /> Full RAG (NBCP + Fire Code)</li>
+                                        <li className="flex gap-3 items-center"><Clock size={16} className="text-zinc-400 shrink-0" /> Chat History</li>
+                                        <li className="flex gap-3 items-center"><BrainCircuit size={16} className="text-zinc-400 shrink-0" /> <strong>5</strong> Deep Thinking / Day</li>
+                                        <li className="flex gap-3 items-center"><ShieldCheck size={16} className="text-zinc-400 shrink-0" /> <strong>3</strong> Compliance Checklists / Day</li>
                                     </ul>
                                 </CardContent>
                                 <CardFooter>
-                                    <Button className="w-full font-sans uppercase tracking-widest text-xs font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)]">Get Monthly</Button>
+                                    <Button variant="outline" className="w-full font-sans uppercase tracking-widest text-xs border-zinc-700 bg-zinc-800/50 hover:bg-zinc-700 hover:text-white text-zinc-300">Get Basic</Button>
                                 </CardFooter>
                             </Card>
                         </SpotlightCard>
 
-                        {/* Yearly Tier */}
-                        <SpotlightCard className="rounded-xl" spotlightColor="rgba(255, 255, 255, 0.15)">
+                        {/* Pro Tier - Featured */}
+                        <div className="relative group">
+                            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-purple-500 to-primary rounded-xl blur opacity-30 group-hover:opacity-50 transition duration-500"></div>
+                            <SpotlightCard className="rounded-xl relative" spotlightColor="rgba(255, 255, 255, 0.2)">
+                                <Card className="flex flex-col h-full bg-zinc-950 border-primary/60 shadow-2xl shadow-primary/20 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 bg-gradient-to-r from-primary to-purple-500 text-primary-foreground text-[10px] font-mono font-bold uppercase tracking-widest px-4 py-1.5 rounded-bl-lg shadow-lg">Popular</div>
+                                    <CardHeader>
+                                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-purple-500/20 rounded-lg flex items-center justify-center mb-4">
+                                            <BrainCircuit size={24} className="text-primary" />
+                                        </div>
+                                        <CardTitle className="font-heading text-xl text-white">Pro</CardTitle>
+                                        <CardDescription className="font-sans text-zinc-400">For professionals</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex-1 space-y-6">
+                                        <div>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-2xl font-mono font-bold text-white">₱</span><span className="text-4xl font-mono font-bold tracking-tighter text-white">4,990</span>
+                                                <span className="text-zinc-500 font-mono text-sm">/mo</span>
+                                            </div>
+                                        </div>
+                                        <ul className="space-y-3 text-sm font-sans text-zinc-200">
+                                            <li className="flex gap-3 items-center"><Sparkles size={16} className="text-primary shrink-0" /> <span className="text-primary font-semibold">Unlimited</span> Queries</li>
+                                            <li className="flex gap-3 items-center"><BookOpen size={16} className="text-primary shrink-0" /> Full RAG (NBCP + Fire Code)</li>
+                                            <li className="flex gap-3 items-center"><BrainCircuit size={16} className="text-primary shrink-0" /> <span className="text-primary font-semibold">Unlimited</span> Deep Thinking</li>
+                                            <li className="flex gap-3 items-center"><ShieldCheck size={16} className="text-primary shrink-0" /> <span className="text-primary font-semibold">Unlimited</span> Compliance</li>
+                                            <li className="flex gap-3 items-center"><Upload size={16} className="text-primary shrink-0" /> BYOD (Upload Documents)</li>
+                                            <li className="flex gap-3 items-center"><Headphones size={16} className="text-primary shrink-0" /> Priority Support</li>
+                                        </ul>
+                                    </CardContent>
+                                    <CardFooter>
+                                        <Button className="w-full font-sans uppercase tracking-widest text-xs font-bold bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90 shadow-[0_0_30px_rgba(139,92,246,0.3)]">Get Pro</Button>
+                                    </CardFooter>
+                                </Card>
+                            </SpotlightCard>
+                        </div>
+
+                        {/* Team Tier */}
+                        <SpotlightCard className="rounded-xl" spotlightColor="rgba(255, 255, 255, 0.1)">
                             <Card className="flex flex-col h-full bg-zinc-900 border-zinc-700 hover:border-zinc-500 transition-colors duration-300">
                                 <CardHeader>
                                     <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center mb-4">
-                                        <ShieldCheck size={24} className="text-white" />
+                                        <Users size={24} className="text-white" />
                                     </div>
-                                    <CardTitle className=" text-white font-heading text-xl">Yearly Pro</CardTitle>
-                                    <CardDescription className="text-zinc-400 font-sans">For serious practitioners</CardDescription>
+                                    <CardTitle className="font-heading text-xl text-white">Team</CardTitle>
+                                    <CardDescription className="font-sans text-zinc-400">For firms & teams</CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-1 space-y-6">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-4xl font-mono font-bold tracking-tighter text-white">$180</span>
-                                        <span className="text-zinc-500 font-mono text-sm">/yr</span>
+                                    <div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-2xl font-mono font-bold text-white">₱</span><span className="text-4xl font-mono font-bold tracking-tighter text-white">13,990</span>
+                                            <span className="text-zinc-500 font-mono text-sm">/mo</span>
+                                        </div>
                                     </div>
-                                    <ul className="space-y-3 text-sm text-zinc-300 font-sans">
-                                        <li className="flex gap-3"><Check size={18} className="text-white" /> <strong>3 Months Free</strong> (Save $60)</li>
-                                        <li className="flex gap-3"><Check size={18} className="text-white" /> Priority Server Access</li>
-                                        <li className="flex gap-3"><Check size={18} className="text-white" /> Early Access: Vision Plan Review</li>
+                                    <ul className="space-y-3 text-sm font-sans text-zinc-300">
+                                        <li className="flex gap-3 items-center"><Check size={16} className="text-white shrink-0" /> Everything in Pro</li>
+                                        <li className="flex gap-3 items-center"><Users size={16} className="text-white shrink-0" /> <strong>5 Team Seats</strong></li>
+                                        <li className="flex gap-3 items-center"><Clock size={16} className="text-white shrink-0" /> Shared Compliance History</li>
+                                        <li className="flex gap-3 items-center"><Sparkles size={16} className="text-white shrink-0" /> ~₱2,798/seat value</li>
                                     </ul>
                                 </CardContent>
                                 <CardFooter>
-                                    <Button variant="secondary" className="w-full font-bold font-sans uppercase tracking-widest text-xs bg-white text-black hover:bg-zinc-200">Get Yearly License</Button>
+                                    <Button variant="secondary" className="w-full font-bold font-sans uppercase tracking-widest text-xs bg-white text-black hover:bg-zinc-200">Get Team</Button>
                                 </CardFooter>
                             </Card>
                         </SpotlightCard>
