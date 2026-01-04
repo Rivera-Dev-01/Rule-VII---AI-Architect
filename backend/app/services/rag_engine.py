@@ -183,9 +183,69 @@ class RAGEngine:
         "leed": ["PGBC"],
         
         # Housing -> BP 220
-        "socialized housing": ["BP_220", "BP 220"],
-        "low cost housing": ["BP_220", "BP 220"],
-        "economic housing": ["BP_220", "BP 220"],
+        "socialized housing": ["BP_220", "BP 220", "RA 7279", "JMC 2025-001", "JMC 2023-003"],
+        "low cost housing": ["BP_220", "BP 220", "RA 7279"],
+        "economic housing": ["BP_220", "BP 220", "RA 7279"],
+        "udha": ["RA 7279"],
+        "price ceiling": ["JMC 2025-001", "JMC 2023-003"],
+        
+        # Zoning -> LGU Ordinances
+        "taguig": ["Taguig Ord. 15-2003"],
+        "taguig zoning": ["Taguig Ord. 15-2003"],
+        "makati": ["Makati Zoning"],
+        "makati zoning": ["Makati Zoning"],
+        "manila": ["Manila Ord. 8119"],
+        "manila zoning": ["Manila Ord. 8119"],
+        "zoning ordinance": ["Taguig Ord. 15-2003", "Makati Zoning", "Manila Ord. 8119"],
+        "land use": ["Taguig Ord. 15-2003", "Makati Zoning", "Manila Ord. 8119"],
+        
+        # Local Government Code -> RA 7160
+        "local government code": ["RA 7160"],
+        "lgc": ["RA 7160"],
+        "ra 7160": ["RA 7160"],
+        "barangay": ["RA 7160"],
+        "municipal": ["RA 7160"],
+        
+        # Heritage -> RA 10066
+        "heritage": ["RA 10066"],
+        "heritage zone": ["RA 10066"],
+        "cultural property": ["RA 10066"],
+        "national cultural": ["RA 10066"],
+        "historical": ["RA 10066"],
+        "ra 10066": ["RA 10066"],
+        
+        # DPWH Department Orders
+        "dpwh": ["DPWH DO 127", "DPWH DO 166", "DPWH DO 48", "DPWH DO 131"],
+        "do 127": ["DPWH DO 127"],
+        "do 166": ["DPWH DO 166"],
+        "do 48": ["DPWH DO 48"],
+        "do 131": ["DPWH DO 131"],
+        "design guidelines": ["DPWH DO 127"],
+        "completion certificate": ["DPWH DO 166"],
+        "design audit": ["DPWH DO 48", "DPWH DO 131"],
+        
+        # Construction Safety -> DOLE DO 13
+        "construction safety": ["DOLE DO 13"],
+        "worker safety": ["DOLE DO 13"],
+        "dole": ["DOLE DO 13"],
+        "occupational safety": ["DOLE DO 13"],
+        
+        # Procurement -> RA 12009, GPPB
+        "procurement": ["RA 12009", "GPPB Res. 02-2025"],
+        "gppb": ["GPPB Res. 02-2025"],
+        "bidding": ["RA 12009", "GPPB Res. 02-2025"],
+        
+        # ADR -> RA 9285
+        "adr": ["RA 9285"],
+        "arbitration": ["RA 9285"],
+        "mediation": ["RA 9285"],
+        "dispute resolution": ["RA 9285"],
+        
+        # Civil Code -> RA 386
+        "civil code": ["RA 386"],
+        "ra 386": ["RA 386"],
+        "property rights": ["RA 386"],
+        "easement": ["RA 386"],
     }
     
     # Domain keywords for hybrid search pre-filtering
@@ -289,20 +349,52 @@ class RAGEngine:
                 document_types=doc_types
             )
             
+            # HYBRID SEARCH: If Law Router detected specific laws, fetch those directly
+            if priority_laws:
+                try:
+                    query_embedding = self.search_service.embedding_service.embed(query)
+                    
+                    # Search specifically for documents from priority law codes
+                    for law_code in priority_laws[:3]:  # Limit to top 3 laws
+                        law_results = supabase.table('rag_documents') \
+                            .select('id, content, source, law_code, document_type, section_ref, chunk_index, embedding') \
+                            .eq('law_code', law_code) \
+                            .limit(2) \
+                            .execute()
+                        
+                        if law_results.data:
+                            existing_ids = {r.get('id') for r in results}
+                            for doc in law_results.data:
+                                if doc.get('id') not in existing_ids:
+                                    # Calculate similarity manually
+                                    import json
+                                    import numpy as np
+                                    stored_embed = doc.get('embedding')
+                                    if stored_embed:
+                                        if isinstance(stored_embed, str):
+                                            stored_embed = json.loads(stored_embed)
+                                        sim = float(np.dot(query_embedding, stored_embed) / 
+                                                  (np.linalg.norm(query_embedding) * np.linalg.norm(stored_embed)))
+                                        doc['similarity'] = min(1.0, sim + 0.15)  # Boost by 15%
+                                        del doc['embedding']  # Don't need to keep this
+                                        results.append(doc)
+                                        existing_ids.add(doc.get('id'))
+                    
+                    # Re-sort by similarity
+                    results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)
+                    results = results[:top_k]  # Trim to top_k
+                    
+                except Exception as e:
+                    logger.warning(f"Hybrid law search failed: {e}")
+                    # Fall back to just boosting existing results
+                    for doc in results:
+                        doc_law_code = doc.get('law_code', '')
+                        if any(law in str(doc_law_code) for law in priority_laws):
+                            doc['similarity'] = min(1.0, doc.get('similarity', 0) + 0.1)
+                    results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)
+            
             if not results:
                 return []
-            
-            # Prioritize results matching law router
-            if priority_laws:
-                # Boost similarity for documents matching priority laws
-                for doc in results:
-                    doc_law_code = doc.get('law_code', '')
-                    if any(law in doc_law_code for law in priority_laws):
-                        # Boost by 10% for matching law, cap at 1.0
-                        doc['similarity'] = min(1.0, doc.get('similarity', 0) + 0.1)
-                
-                # Re-sort by boosted similarity
-                results = sorted(results, key=lambda x: x.get('similarity', 0), reverse=True)
             
             # Convert to SourceNode format
             sources = []
